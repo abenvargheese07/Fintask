@@ -1,3 +1,5 @@
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Literal, Optional
@@ -98,3 +100,5 @@ def delete_task(task_id: int):
     get_or_404(task_id)
     db.delete_task(task_id)
     return {'ok': True}
+
+app.mount('/', StaticFiles(directory=Path(__file__).parent / 'static', html=True), name='static')

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang='en'>
+
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <title>Fintask</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            font-family: -apple-system, system-ui, sans-serif;
+        }
+
+        body {
+            max-width: 640px;
+            margin: 40px auto;
+            padding: 0 16px;
+        }
+
+        form {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        #title {
+            flex: 1 1 200px;
+        }
+
+        input,
+        select,
+        button {
+            font: inherit;
+            padding: 8px;
+        }
+
+        nav {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        nav .active {
+            font-weight: 700;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0 10px 10px;
+            border-bottom: 1px solid #8884;
+            border-left: 4px solid;
+        }
+
+        li.p1 {
+            border-left-color: #e5484d;
+        }
+
+        li.p2 {
+            border-left-color: #f5a524;
+        }
+
+        li.p3 {
+            border-left-color: #3e9b4f;
+        }
+
+        li.done .title {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .title {
+            flex: 1;
+        }
+
+        .due {
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Fintask</h1>
+    <form id='add'>
+        <input id='title' type='text' placeholder='What needs doing?' maxlength='200' required>
+        <input id='due' type='datetime-local'>
+        <select id='priority'>
+            <option value='1'>High</option>
+            <option value='2' selected>Medium</option>
+            <option value='3'>Low</option>
+        </select>
+        <button>Add</button>
+    </form>
+    <nav id='tabs'></nav>
+    <ul id='list'></ul>
+
+    <script>
+        const API = '/api/tasks';
+        const views = ['today', 'upcoming', 'done'];
+        let view = 'today';
+
+        async function api(path, method = 'GET', body) {
+            const res = await fetch(path, {
+                method,
+                headers: body ? { 'Content-Type': 'application/json' } : {},
+                body: body ? JSON.stringify(body) : undefined,
+            });
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        }
+
+        function button(label, onClick) {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.onclick = onClick;
+            return b;
+        }
+
+        function renderTabs() {
+            document.getElementById('tabs').replaceChildren(...views.map((v) => {
+                const b = button(v[0].toUpperCase() + v.slice(1), () => { view = v; load(); });
+                if (v === view) b.className = 'active';
+                return b;
+            }));
+        }
+
+        async function load() {
+            renderTabs();
+            const tasks = await api(`${API}?view=${view}`);
+            document.getElementById('list').replaceChildren(...tasks.map((t) => {
+                const li = document.createElement('li');
+                li.className = `p${t.priority}` + (t.done ? ' done' : '');
+
+                const box = document.createElement('input');
+                box.type = 'checkbox';
+                box.checked = !!t.done;
+                box.onchange = async () => {
+                    await api(`${API}/${t.id}/${t.done ? 'reopen' : 'complete'}`, 'POST');
+                    load();
+                };
+
+                const info = document.createElement('div');
+                info.className = 'title';
+                info.textContent = t.title;
+                if (t.due_at) {
+                    const due = document.createElement('div');
+                    due.className = 'due';
+                    due.textContent = t.due_at.replace('T', ' ');
+                    info.appendChild(due);
+                }
+
+                li.append(box, info);
+                if (!t.done) {
+                    li.append(button('+10m', async () => { await api(`${API}/${t.id}/snooze?minutes=10`, 'POST'); load(); }));
+                }
+                li.append(button('x', async () => { await api(`${API}/${t.id}`, 'DELETE'); load(); }));
+                return li;
+            }));
+        }
+
+        document.getElementById('add').onsubmit = async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('title');
+            const due = document.getElementById('due');
+            const priority = document.getElementById('priority');
+            await api(API, 'POST', { title: title.value, due_at: due.value || null, priority: Number(priority.value) });
+            title.value = '';
+            due.value = '';
+            load();
+        };
+
+        setInterval(load, 30000);
+        load();
+    </script>
+</body>
+
+</html>
