@@ -57,9 +57,11 @@ def add_task(title, notes='', due_at=None, priority=2):
 
 def list_tasks(view='today'):
     today = datetime.now().strftime('%Y-%m-%d')
+    now = datetime.now().strftime(FMT)
     queries = {
         'today': ('done = 0 AND due_at IS NOT NULL AND substr(due_at, 1, 10) <= ?', (today,)),
         'upcoming': ('done = 0 AND (due_at IS NULL OR substr(due_at, 1, 10) > ?)', (today,)),
+        'overdue': ('done = 0 AND due_at IS NOT NULL AND due_at < ?', (now,)),
         'done': ('done = 1', ()),
         'all': ('1 = 1', ()),
     }
@@ -68,6 +70,24 @@ def list_tasks(view='today'):
     with get_conn() as conn:
         rows = conn.execute(sql, params).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_stats():
+    today = datetime.now().strftime('%Y-%m-%d')
+    now = datetime.now().strftime(FMT)
+    with get_conn() as conn:
+        total = conn.execute('SELECT COUNT(*) FROM tasks').fetchone()[0]
+        done = conn.execute('SELECT COUNT(*) FROM tasks WHERE done = 1').fetchone()[0]
+        overdue = conn.execute('SELECT COUNT(*) FROM tasks WHERE done = 0 AND due_at IS NOT NULL AND due_at < ?', (now,)).fetchone()[0]
+        due_today = conn.execute('SELECT COUNT(*) FROM tasks WHERE done = 0 AND due_at IS NOT NULL AND substr(due_at, 1, 10) = ?', (today,)).fetchone()[0]
+        pending = conn.execute('SELECT COUNT(*) FROM tasks WHERE done = 0').fetchone()[0]
+    return {
+        'total': total,
+        'done': done,
+        'overdue': overdue,
+        'today': due_today,
+        'pending': pending,
+    }
 
 
 def update_task(task_id, fields):

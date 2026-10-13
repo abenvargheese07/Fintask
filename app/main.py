@@ -7,13 +7,15 @@ from typing import Annotated, Literal, Optional
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import AfterValidator, BaseModel, Field
 
-from . import db
+from . import db, reminders
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    reminders.start()
     yield
+    reminders.stop()
 
 
 app = FastAPI(title='Fintask', lifespan=lifespan)
@@ -57,8 +59,13 @@ def health():
     return {'status': 'ok', 'app': 'fintask'}
 
 
+@app.get('/api/stats')
+def get_stats():
+    return db.get_stats()
+
+
 @app.get('/api/tasks')
-def list_tasks(view: Literal['today', 'upcoming', 'done', 'all'] = 'today'):
+def list_tasks(view: Literal['today', 'upcoming', 'overdue', 'done', 'all'] = 'today'):
     return db.list_tasks(view)
 
 
@@ -90,7 +97,7 @@ def reopen_task(task_id: int):
 
 
 @app.post('/api/tasks/{task_id}/snooze')
-def snooze_task(task_id: int, minutes: int = Query(10, ge=1, le=1440)):
+def snooze_task(task_id: int, minutes: int = Query(10, ge=1, le=10080)):
     get_or_404(task_id)
     return db.snooze_task(task_id, minutes)
 
