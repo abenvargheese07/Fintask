@@ -110,16 +110,72 @@ export default function App() {
 
   const lastNotificationIdRef = useRef(0);
 
-  // Mobile View Platform & Preview State
-  const [forceMobileView, setForceMobileView] = useState(() => {
+  // Dynamic window width & media query tracking for instant responsive mobile view switching
+  const [isMobileScreen, setIsMobileScreen] = useState(() => {
+    if (typeof window === 'undefined') return false;
     if (Capacitor.isNativePlatform()) return true;
     const params = new URLSearchParams(window.location.search);
     if (params.get('view') === 'mobile' || params.get('platform') === 'mobile') return true;
-    const saved = localStorage.getItem('fintask_view_mode');
-    if (saved === 'mobile') return true;
-    if (saved === 'desktop') return false;
-    return window.innerWidth < 768;
+    if (params.get('view') === 'desktop') return false;
+    const isNarrow = window.innerWidth < 768 || (window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
+    const isMobileUA = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    return Boolean(isNarrow || (isMobileUA && window.innerWidth < 1024));
   });
+
+  useEffect(() => {
+    // Purge legacy local storage override if present so it never forces desktop
+    try {
+      localStorage.removeItem('fintask_view_mode');
+    } catch (e) {}
+
+    if (typeof window === 'undefined') return;
+
+    const mql = window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
+    const checkIsMobile = () => {
+      if (Capacitor.isNativePlatform()) {
+        setIsMobileScreen(true);
+        return;
+      }
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'mobile' || params.get('platform') === 'mobile') {
+        setIsMobileScreen(true);
+        return;
+      }
+      if (params.get('view') === 'desktop') {
+        setIsMobileScreen(false);
+        return;
+      }
+      const isNarrow = window.innerWidth < 768 || (mql && mql.matches);
+      const isMobileUA = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobileScreen(Boolean(isNarrow || (isMobileUA && window.innerWidth < 1024)));
+    };
+
+    checkIsMobile();
+
+    window.addEventListener('resize', checkIsMobile);
+    window.addEventListener('orientationchange', checkIsMobile);
+    if (mql) {
+      if (mql.addEventListener) {
+        mql.addEventListener('change', checkIsMobile);
+      } else if (mql.addListener) {
+        mql.addListener(checkIsMobile);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('resize', checkIsMobile);
+      window.removeEventListener('orientationchange', checkIsMobile);
+      if (mql) {
+        if (mql.removeEventListener) {
+          mql.removeEventListener('change', checkIsMobile);
+        } else if (mql.removeListener) {
+          mql.removeListener(checkIsMobile);
+        }
+      }
+    };
+  }, []);
+
+  const isMobile = isMobileScreen;
 
   // Mobile Native Platform Setup (Status bar style, splash screen hide & notification channel)
   useEffect(() => {
@@ -661,7 +717,7 @@ export default function App() {
   const editDeadlineHelper = getDeadlineHelper(editDueAt);
   const completionPercent = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
 
-  if (forceMobileView) {
+  if (isMobile) {
     return (
       <>
         <MobileView
@@ -695,10 +751,6 @@ export default function App() {
           syncStatus={syncStatus}
           syncWithServer={syncWithServer}
           serverUrl={serverUrl}
-          onSwitchToDesktop={() => {
-            setForceMobileView(false);
-            localStorage.setItem('fintask_view_mode', 'desktop');
-          }}
         />
 
         {/* Global Multi-Device Modal accessible from Mobile */}

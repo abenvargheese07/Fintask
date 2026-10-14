@@ -1060,15 +1060,18 @@ body {
   }
 }
 
-/* Responsive */
+/* Tablet Responsive (768px - 900px) */
 @media (max-width: 900px) {
   .spatial-container {
     flex-direction: column;
+    align-items: center;
+    gap: 14px;
   }
   .dock-capsule {
     flex-direction: row;
     width: auto;
     margin-top: 0;
+    margin-bottom: 4px;
   }
   .workspace-grid {
     grid-template-columns: 1fr;
