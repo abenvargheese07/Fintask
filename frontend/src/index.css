@@ -58,9 +58,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 36px 20px;
+  justify-content: safe center;
+  padding: 32px 24px 48px 24px;
   position: relative;
+  box-sizing: border-box;
 }
 
 /* Ambient dark veil with soft spatial lighting */
@@ -86,15 +87,15 @@ body {
 
 /* Top bar indicators outside window */
 .ambient-topbar {
-  position: absolute;
-  top: 16px;
-  left: 28px;
-  right: 28px;
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 20;
-  pointer-events: none;
+  margin-bottom: 26px;
+  padding: 0 4px;
 }
 
 .ambient-author {
