@@ -15,7 +15,16 @@ export const DEFAULT_CLOUD_SERVER = 'https://web-production-975c4.up.railway.app
 function getInitialServerUrl() {
   if (typeof localStorage === 'undefined') return DEFAULT_CLOUD_SERVER;
   const saved = localStorage.getItem('fintask_server_url');
-  if (!saved || (typeof window !== 'undefined' && window.location.protocol === 'https:' && saved.startsWith('http://'))) {
+  if (
+    !saved ||
+    saved.includes('192.168.') ||
+    saved.includes('localhost') ||
+    saved.includes('127.0.0.1') ||
+    (typeof window !== 'undefined' && window.location.protocol === 'https:' && saved.startsWith('http://'))
+  ) {
+    try {
+      localStorage.setItem('fintask_server_url', DEFAULT_CLOUD_SERVER);
+    } catch (e) {}
     return DEFAULT_CLOUD_SERVER;
   }
   return saved;
@@ -935,6 +944,28 @@ export default function App() {
           <span>Escalating Urgency & Multi-Device Engine</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <a
+            href="https://web-production-975c4.up.railway.app/download-apk"
+            className="btn-secondary"
+            style={{
+              padding: '5px 12px',
+              fontSize: '0.74rem',
+              borderRadius: '20px',
+              background: 'rgba(56, 189, 248, 0.14)',
+              borderColor: 'rgba(56, 189, 248, 0.35)',
+              color: '#38bdf8',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              fontWeight: 600
+            }}
+            title="Download Android APK directly"
+          >
+            <span>📥</span>
+            <span>Download APK</span>
+          </a>
           <button
             className="btn-secondary"
             style={{
