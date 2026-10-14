@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Fintask</string>
+    <string name="title_activity_main">Fintask</string>
+    <string name="package_name">com.fintask.app</string>
+    <string name="custom_url_scheme">com.fintask.app</string>
+</resources>

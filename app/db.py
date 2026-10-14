@@ -1,9 +1,11 @@
+import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / 'fintask.db'
+DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / 'fintask.db'
+DB_PATH = Path(os.environ.get('DATABASE_PATH', str(DEFAULT_DB_PATH)))
 FMT = '%Y-%m-%dT%H:%M'
 
 SCHEMA = '''
@@ -15,8 +17,24 @@ CREATE TABLE IF NOT EXISTS tasks (
     priority INTEGER NOT NULL DEFAULT 2,
     done INTEGER NOT NULL DEFAULT 0,
     reminded INTEGER NOT NULL DEFAULT 0,
+    last_reminded_at TEXT,
+    reminder_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
-)
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS notification_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    urgency TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 '''
 
 
@@ -32,9 +50,17 @@ def get_conn():
 
 
 def init_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_conn() as conn:
         conn.execute('PRAGMA journal_mode=WAL')
-        conn.execute(SCHEMA)
+        conn.executescript(SCHEMA)
+        # Migrate existing tasks table if missing new columns
+        cur = conn.execute('PRAGMA table_info(tasks)')
+        cols = {row['name'] for row in cur.fetchall()}
+        if 'last_reminded_at' not in cols:
+            conn.execute('ALTER TABLE tasks ADD COLUMN last_reminded_at TEXT')
+        if 'reminder_count' not in cols:
+            conn.execute('ALTER TABLE tasks ADD COLUMN reminder_count INTEGER NOT NULL DEFAULT 0')
 
 
 def get_task(task_id):
@@ -96,7 +122,9 @@ def update_task(task_id, fields):
     if not fields:
         return get_task(task_id)
     if 'due_at' in fields:
-        fields['reminded'] = 0  # new due time means a new reminder
+        fields['reminded'] = 0
+        fields['last_reminded_at'] = None
+        fields['reminder_count'] = 0
     sets = ', '.join(f'{k} = ?' for k in fields)
     with get_conn() as conn:
         conn.execute(f'UPDATE tasks SET {sets} WHERE id = ?', (*fields.values(), task_id))
@@ -112,13 +140,57 @@ def set_done(task_id, done):
 def snooze_task(task_id, minutes):
     due = (datetime.now() + timedelta(minutes=minutes)).strftime(FMT)
     with get_conn() as conn:
-        conn.execute('UPDATE tasks SET due_at = ?, reminded = 0 WHERE id = ?', (due, task_id))
+        conn.execute(
+            'UPDATE tasks SET due_at = ?, reminded = 0, last_reminded_at = NULL, reminder_count = 0 WHERE id = ?',
+            (due, task_id)
+        )
     return get_task(task_id)
 
 
 def delete_task(task_id):
     with get_conn() as conn:
         conn.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+
+
+def get_active_tasks_with_deadline():
+    with get_conn() as conn:
+        rows = conn.execute(
+            'SELECT * FROM tasks WHERE done = 0 AND due_at IS NOT NULL ORDER BY due_at'
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def record_notification_prompt(task_id, title, message, urgency):
+    now = datetime.now().isoformat(timespec='seconds')
+    with get_conn() as conn:
+        conn.execute(
+            'UPDATE tasks SET last_reminded_at = ?, reminder_count = reminder_count + 1, reminded = 1 WHERE id = ?',
+            (now, task_id)
+        )
+        conn.execute(
+            'INSERT INTO notification_events (task_id, title, message, urgency, created_at) VALUES (?, ?, ?, ?, ?)',
+            (task_id, title, message, urgency, now)
+        )
+
+
+def get_recent_notifications(since_id=0, limit=20):
+    with get_conn() as conn:
+        rows = conn.execute(
+            'SELECT * FROM notification_events WHERE id > ? ORDER BY id DESC LIMIT ?',
+            (since_id, limit)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_setting(key, default=None):
+    with get_conn() as conn:
+        row = conn.execute('SELECT value FROM settings WHERE key = ?', (key,)).fetchone()
+    return row['value'] if row else default
+
+
+def set_setting(key, value):
+    with get_conn() as conn:
+        conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, str(value)))
 
 
 def due_unreminded():

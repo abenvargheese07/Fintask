@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.db
+.git/
+.gitignore
+frontend/node_modules/
+frontend/dist/
+frontend/android/
+frontend/ios/
+.firebase/

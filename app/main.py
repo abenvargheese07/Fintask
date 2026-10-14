@@ -18,7 +18,17 @@ async def lifespan(app: FastAPI):
     reminders.stop()
 
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title='Fintask', lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*'],
+)
 
 
 def clean_due(value):
@@ -107,5 +117,59 @@ def delete_task(task_id: int):
     get_or_404(task_id)
     db.delete_task(task_id)
     return {'ok': True}
+
+
+@app.get('/api/notifications/poll')
+def poll_notifications(since_id: int = Query(0, ge=0)):
+    return db.get_recent_notifications(since_id=since_id, limit=30)
+
+
+@app.get('/api/settings')
+def get_settings():
+    return {
+        'ntfy_topic': db.get_setting('ntfy_topic', '')
+    }
+
+
+class SettingsUpdate(BaseModel):
+    ntfy_topic: Optional[str] = None
+
+
+@app.post('/api/settings')
+def update_settings(payload: SettingsUpdate):
+    if payload.ntfy_topic is not None:
+        db.set_setting('ntfy_topic', payload.ntfy_topic.strip())
+    return get_settings()
+
+
+@app.post('/api/test-notification')
+def test_notification():
+    title = 'Fintask Escalating Alert'
+    msg = '⚡ Test: Approaching deadline alert triggered across your devices!'
+    urgency = 'urgent'
+    reminders.send_mac_notification(title, msg, sound='Ping')
+    db.record_notification_prompt(0, 'Test Alert', msg, urgency)
+    reminders.send_mobile_push(title, msg, urgency)
+    return {'ok': True, 'message': 'Test alert broadcasted'}
+
+
+from fastapi.responses import FileResponse
+
+
+@app.api_route('/download-apk', methods=['GET', 'HEAD'])
+def download_apk():
+    apk_candidates = [
+        Path(__file__).resolve().parent / 'fintask.apk',
+        Path(__file__).resolve().parent.parent / 'frontend/android/app/build/outputs/apk/debug/app-debug.apk',
+    ]
+    apk_path = next((p for p in apk_candidates if p.exists()), None)
+    if not apk_path:
+        raise HTTPException(404, 'APK not found. Please build it first.')
+    return FileResponse(
+        path=apk_path,
+        filename='fintask.apk',
+        media_type='application/vnd.android.package-archive'
+    )
+
 
 app.mount('/', StaticFiles(directory=Path(__file__).parent / 'static', html=True), name='static')
