@@ -966,28 +966,7 @@ export default function App() {
             <span>📥</span>
             <span>Download APK</span>
           </a>
-          <button
-            className="btn-secondary"
-            style={{
-              padding: '5px 12px',
-              fontSize: '0.74rem',
-              borderRadius: '20px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              borderColor: 'rgba(255, 255, 255, 0.16)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer'
-            }}
-            onClick={() => {
-              setForceMobileView(true);
-              localStorage.setItem('fintask_view_mode', 'mobile');
-            }}
-            title="Preview Mobile App View (for mobile deployment)"
-          >
-            <span>📱</span>
-            <span>Mobile App View</span>
-          </button>
+
           <button
             className="btn-secondary"
             style={{
@@ -1067,6 +1046,16 @@ export default function App() {
               <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
           </button>
+          <button
+            className="dock-btn"
+            title="Settings & Alerts"
+            onClick={() => setIsDeviceModalOpen(true)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
         </aside>
 
         {/* Main Floating Glass Panel */}
@@ -1101,18 +1090,7 @@ export default function App() {
               })}
             </nav>
 
-            {/* Cross-Device / Settings Pill */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                className="reminders-status-pill"
-                style={{ cursor: 'pointer', background: 'rgba(255, 255, 255, 0.12)' }}
-                onClick={() => setIsDeviceModalOpen(true)}
-                title="Connect devices & configure alerts"
-              >
-                <span className="status-dot-pulse"></span>
-                <span>📱 Multi-Device Prompts</span>
-              </button>
-            </div>
+
           </header>
 
           {/* Hero Section with Headline & Large Key Metrics */}
