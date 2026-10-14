@@ -12,3 +12,4 @@ frontend/android/app/build/
 frontend/ios/App/Pods/
 frontend/ios/App/build/
 *.pyc
+firebase-debug.log

@@ -8,7 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from . import db
 
 logger = logging.getLogger('fintask.reminders')
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone='UTC')
 
 
 def send_mac_notification(title, message, sound='Glass'):

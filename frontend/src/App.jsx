@@ -10,7 +10,18 @@ import {
   cancelTaskNotifications,
 } from './mobile/notifications';
 
-let globalServerUrl = typeof localStorage !== 'undefined' ? (localStorage.getItem('fintask_server_url') || (Capacitor.isNativePlatform() ? 'http://192.168.31.30:8000' : '')) : '';
+export const DEFAULT_CLOUD_SERVER = 'https://web-production-975c4.up.railway.app';
+
+function getInitialServerUrl() {
+  if (typeof localStorage === 'undefined') return DEFAULT_CLOUD_SERVER;
+  const saved = localStorage.getItem('fintask_server_url');
+  if (!saved || (typeof window !== 'undefined' && window.location.protocol === 'https:' && saved.startsWith('http://'))) {
+    return DEFAULT_CLOUD_SERVER;
+  }
+  return saved;
+}
+
+let globalServerUrl = getInitialServerUrl();
 
 function apiFetch(url, options) {
   const base = (globalServerUrl || '').trim().replace(/\/+$/, '');
@@ -85,9 +96,7 @@ export default function App() {
     typeof Notification !== 'undefined' ? Notification.permission === 'granted' : false
   );
   // Sync & Server URL State
-  const [serverUrl, setServerUrl] = useState(() => {
-    return localStorage.getItem('fintask_server_url') || (Capacitor.isNativePlatform() ? 'http://192.168.31.30:8000' : '');
-  });
+  const [serverUrl, setServerUrl] = useState(() => getInitialServerUrl());
   const [syncStatus, setSyncStatus] = useState('checking'); // 'connected' | 'offline' | 'checking'
 
   const lastNotificationIdRef = useRef(0);
@@ -712,7 +721,7 @@ export default function App() {
                     <input
                       type="text"
                       className="glass-text-input"
-                      placeholder="e.g. http://192.168.31.30:8000"
+                      placeholder="e.g. https://web-production-975c4.up.railway.app"
                       value={serverUrl}
                       onChange={(e) => {
                         setServerUrl(e.target.value);
@@ -1561,7 +1570,7 @@ export default function App() {
                   <input
                     type="text"
                     className="glass-text-input"
-                    placeholder="e.g. http://192.168.31.30:8000"
+                    placeholder="e.g. https://web-production-975c4.up.railway.app"
                     value={serverUrl}
                     onChange={(e) => {
                       setServerUrl(e.target.value);
