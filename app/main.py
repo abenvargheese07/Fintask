@@ -173,3 +173,14 @@ def download_apk():
 
 
 app.mount('/', StaticFiles(directory=Path(__file__).parent / 'static', html=True), name='static')
+
+
+if __name__ == '__main__':
+    import os
+    import uvicorn
+    port_str = os.environ.get('PORT', '8080')
+    try:
+        port = int(port_str)
+    except ValueError:
+        port = 8080
+    uvicorn.run(app, host='0.0.0.0', port=port)
