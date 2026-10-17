@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import MobileView from './mobile/MobileView';
+import { parseTaskNlp } from './utils/taskNlp';
 import {
   setupNotificationChannel,
   triggerNativeTestAlert,
@@ -93,6 +94,22 @@ export default function App() {
   const [priority, setPriority] = useState(2);
   const [notes, setNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
+  const [nlpDismissed, setNlpDismissed] = useState(false);
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const taskInputRef = useRef(null);
+
+  const nlpSuggestion = useMemo(() => {
+    if (nlpDismissed || !title.trim()) return { hasSuggestion: false };
+    return parseTaskNlp(title);
+  }, [title, nlpDismissed]);
+
+  const applyNlpSuggestion = () => {
+    if (!nlpSuggestion.hasSuggestion) return;
+    if (nlpSuggestion.detectedDueAt) setDueAt(nlpSuggestion.detectedDueAt);
+    if (nlpSuggestion.detectedPriority) setPriority(nlpSuggestion.detectedPriority);
+    setTitle(nlpSuggestion.cleanTitle);
+    setNlpDismissed(true);
+  };
 
   // Edit Modal State
   const [editingTask, setEditingTask] = useState(null);
@@ -675,6 +692,11 @@ export default function App() {
     setDueAt('');
     setNotes('');
     setShowNotes(false);
+    setNlpDismissed(false);
+    setShowCustomDatePicker(false);
+    if (taskInputRef.current) {
+      taskInputRef.current.focus();
+    }
     showToast('Task & deadline scheduled! 🎯');
     refreshAll();
   };
@@ -1406,185 +1428,288 @@ export default function App() {
 
           {/* 2-Column Workspace Grid */}
           <div className="workspace-grid">
-            {/* Left Column: Dedicated Deadline & Task Input Card */}
-            <article className="featured-stepper-card">
+            {/* Left Column: Interactive Smart Task & Deadline Console */}
+            <article className="smart-input-card">
               <div className="stepper-header">
                 <div className="card-title-group">
-                  <div className="card-icon-box">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <line x1="12" y1="8" x2="12" y2="16"></line>
-                      <line x1="8" y1="12" x2="16" y2="12"></line>
+                  <div className="card-icon-box" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05))', border: '1px solid rgba(255,255,255,0.22)' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                      <path d="M12 5v14M5 12h14"/>
                     </svg>
                   </div>
                   <div>
-                    <h3>Schedule Task & Deadline</h3>
-                    <p>Escalating prompts accelerate as the deadline nears</p>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      Schedule Task
+                      <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(34, 197, 94, 0.16)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)', fontWeight: 700 }}>
+                        Smart Input Active
+                      </span>
+                    </h3>
+                    <p>Natural language parsing & 1-tap presets enabled</p>
                   </div>
                 </div>
               </div>
 
-              <form onSubmit={handleCreateTask} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div className="glass-input-row">
-                  <label className="glass-input-label" htmlFor="new-task-title">
-                    Task Title *
-                  </label>
+              <form onSubmit={handleCreateTask} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="smart-input-wrapper">
                   <input
+                    ref={taskInputRef}
                     id="new-task-title"
                     type="text"
-                    className="glass-text-input"
-                    placeholder="e.g. Prepare financial forecast report"
+                    className="smart-input-box"
+                    placeholder="What needs to be done? (e.g. Tax filing tomorrow 5pm !p1)"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      if (nlpDismissed) setNlpDismissed(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab' && nlpSuggestion.hasSuggestion) {
+                        e.preventDefault();
+                        applyNlpSuggestion();
+                      }
+                    }}
                     maxLength={200}
                     required
+                    autoFocus
                   />
+
+                  {/* Magic NLP Suggestion Banner */}
+                  {nlpSuggestion.hasSuggestion && (
+                    <div className="nlp-suggestion-banner">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                        <span style={{ fontSize: '1rem' }}>✨</span>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          Detected: <strong>{nlpSuggestion.label}</strong>
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          className="nlp-suggestion-apply-btn"
+                          onClick={applyNlpSuggestion}
+                          title="Apply extracted deadline and priority (Tab)"
+                        >
+                          Apply <span style={{ opacity: 0.6, fontSize: '0.65rem', marginLeft: 2 }}>Tab ⇥</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-btn-subtle"
+                          style={{ width: 22, height: 22, fontSize: '0.75rem', border: 'none' }}
+                          onClick={() => setNlpDismissed(true)}
+                          title="Dismiss suggestion"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="glass-input-row">
-                  <label className="glass-input-label">Priority Tier</label>
-                  <div className="priority-segments-row">
+                {/* Interactive Controls Toolbar */}
+                <div className="input-controls-toolbar">
+                  {/* Priority Selectors */}
+                  <div className="toolbar-priority-chips">
+                    <span className="toolbar-chip-label">Priority:</span>
                     <button
                       type="button"
-                      className={`segment-btn ${priority === 1 ? 'active p1' : ''}`}
+                      className={`pill-toggle-btn ${priority === 1 ? 'active p1' : ''}`}
                       onClick={() => setPriority(1)}
                     >
                       🔥 High (P1)
                     </button>
                     <button
                       type="button"
-                      className={`segment-btn ${priority === 2 ? 'active p2' : ''}`}
+                      className={`pill-toggle-btn ${priority === 2 ? 'active p2' : ''}`}
                       onClick={() => setPriority(2)}
                     >
-                      ⚡ Medium (P2)
+                      ⚡ Med (P2)
                     </button>
                     <button
                       type="button"
-                      className={`segment-btn ${priority === 3 ? 'active p3' : ''}`}
+                      className={`pill-toggle-btn ${priority === 3 ? 'active p3' : ''}`}
                       onClick={() => setPriority(3)}
                     >
                       🌱 Low (P3)
                     </button>
                   </div>
-                </div>
 
-                {/* Dedicated Deadline Section */}
-                <div className="deadline-picker-box">
-                  <label className="glass-input-label" htmlFor="new-task-due">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    Task Deadline
-                  </label>
+                  {/* 1-Tap Quick Deadline Chips */}
+                  <div className="deadline-interactive-row">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span className="toolbar-chip-label">Quick Deadline:</span>
+                      {dueAt && (
+                        <button
+                          type="button"
+                          style={{ background: 'transparent', border: 'none', color: '#f87171', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}
+                          onClick={() => {
+                            setDueAt('');
+                            setShowCustomDatePicker(false);
+                          }}
+                        >
+                          ✕ Clear Deadline
+                        </button>
+                      )}
+                    </div>
 
-                  <input
-                    id="new-task-due"
-                    type="datetime-local"
-                    className="glass-text-input"
-                    value={dueAt}
-                    onChange={(e) => setDueAt(e.target.value)}
-                  />
-
-                  {/* Quick Deadline Shortcut Chips */}
-                  <div className="deadline-presets-grid">
-                    <button
-                      type="button"
-                      className="preset-chip-btn"
-                      onClick={() => setDueAt(calculatePreset(null, 2))}
-                    >
-                      +2 Hours
-                    </button>
-                    <button
-                      type="button"
-                      className="preset-chip-btn"
-                      onClick={() => setDueAt(calculatePreset('tonight'))}
-                    >
-                      Tonight 9 PM
-                    </button>
-                    <button
-                      type="button"
-                      className="preset-chip-btn"
-                      onClick={() => setDueAt(calculatePreset('tomorrow_morning'))}
-                    >
-                      Tomorrow 9 AM
-                    </button>
-                    <button
-                      type="button"
-                      className="preset-chip-btn"
-                      onClick={() => setDueAt(calculatePreset('tomorrow_evening'))}
-                    >
-                      Tomorrow 5 PM
-                    </button>
-                    <button
-                      type="button"
-                      className="preset-chip-btn"
-                      onClick={() => setDueAt(calculatePreset('friday'))}
-                    >
-                      This Friday
-                    </button>
-                    <button
-                      type="button"
-                      className="preset-chip-btn"
-                      onClick={() => setDueAt(calculatePreset('next_monday'))}
-                    >
-                      Next Monday
-                    </button>
-                    {dueAt && (
+                    <div className="quick-deadline-pills-scroll">
                       <button
                         type="button"
-                        className="preset-chip-btn clear"
-                        onClick={() => setDueAt('')}
+                        className={`deadline-pill ${dueAt === calculatePreset(null, 2) ? 'active' : ''}`}
+                        onClick={() => {
+                          setDueAt(calculatePreset(null, 2));
+                          setShowCustomDatePicker(false);
+                        }}
                       >
-                        Clear
+                        ⚡ +2 Hours
                       </button>
+                      <button
+                        type="button"
+                        className={`deadline-pill ${dueAt === calculatePreset('tonight') ? 'active' : ''}`}
+                        onClick={() => {
+                          setDueAt(calculatePreset('tonight'));
+                          setShowCustomDatePicker(false);
+                        }}
+                      >
+                        🌙 Tonight 9 PM
+                      </button>
+                      <button
+                        type="button"
+                        className={`deadline-pill ${dueAt === calculatePreset('tomorrow_morning') ? 'active' : ''}`}
+                        onClick={() => {
+                          setDueAt(calculatePreset('tomorrow_morning'));
+                          setShowCustomDatePicker(false);
+                        }}
+                      >
+                        🌅 Tomorrow 9 AM
+                      </button>
+                      <button
+                        type="button"
+                        className={`deadline-pill ${dueAt === calculatePreset('tomorrow_evening') ? 'active' : ''}`}
+                        onClick={() => {
+                          setDueAt(calculatePreset('tomorrow_evening'));
+                          setShowCustomDatePicker(false);
+                        }}
+                      >
+                        💼 Tomorrow 5 PM
+                      </button>
+                      <button
+                        type="button"
+                        className={`deadline-pill ${dueAt === calculatePreset('friday') ? 'active' : ''}`}
+                        onClick={() => {
+                          setDueAt(calculatePreset('friday'));
+                          setShowCustomDatePicker(false);
+                        }}
+                      >
+                        📅 This Friday
+                      </button>
+                      <button
+                        type="button"
+                        className={`deadline-pill ${dueAt === calculatePreset('next_monday') ? 'active' : ''}`}
+                        onClick={() => {
+                          setDueAt(calculatePreset('next_monday'));
+                          setShowCustomDatePicker(false);
+                        }}
+                      >
+                        🗓️ Next Monday
+                      </button>
+                      <button
+                        type="button"
+                        className={`deadline-pill ${showCustomDatePicker ? 'active' : ''}`}
+                        onClick={() => setShowCustomDatePicker(!showCustomDatePicker)}
+                      >
+                        🕒 Custom...
+                      </button>
+                    </div>
+
+                    {/* Custom Datetime Input (conditionally revealed or toggled) */}
+                    {showCustomDatePicker && (
+                      <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4, animation: 'slideDownFade 0.2s ease' }}>
+                        <input
+                          id="new-task-due"
+                          type="datetime-local"
+                          className="smart-input-box"
+                          style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                          value={dueAt}
+                          onChange={(e) => setDueAt(e.target.value)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Active Deadline Countdown Tag */}
+                    {dueAt && (
+                      <div className={`active-deadline-banner ${deadlineHelper.cls}`}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>⏳</span>
+                          <span style={{ fontWeight: 600 }}>{deadlineHelper.text}</span>
+                        </div>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.75 }}>Escalating alerts active</span>
+                      </div>
                     )}
                   </div>
 
-                  <div className={`dynamic-deadline-helper ${deadlineHelper.cls}`}>
-                    {deadlineHelper.text}
+                  {/* Expandable Task Notes */}
+                  <div>
+                    <button
+                      type="button"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'rgba(255,255,255,0.6)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: '2px 0',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5
+                      }}
+                      onClick={() => setShowNotes(!showNotes)}
+                    >
+                      <span>📝</span>
+                      <span>{showNotes ? 'Hide notes' : (notes ? 'Edit notes' : '+ Add task notes / details')}</span>
+                    </button>
+
+                    {showNotes && (
+                      <div style={{ marginTop: 6, animation: 'slideDownFade 0.2s ease' }}>
+                        <textarea
+                          className="smart-input-box"
+                          rows="2"
+                          style={{ padding: '10px 14px', fontSize: '0.85rem' }}
+                          placeholder="Context, links, instructions..."
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                        ></textarea>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div>
+                {/* Submit Row with Keyboard Shortcut Hint */}
+                <div className="submit-action-bar">
+                  <div className="keyboard-shortcut-hint">
+                    <span className="shortcut-kbd">↵ Enter</span>
+                    <span>to schedule</span>
+                    {nlpSuggestion.hasSuggestion && (
+                      <>
+                        <span style={{ opacity: 0.4 }}>•</span>
+                        <span className="shortcut-kbd">Tab ⇥</span>
+                        <span>apply suggestion</span>
+                      </>
+                    )}
+                  </div>
+
                   <button
-                    type="button"
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'rgba(255,255,255,0.65)',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      padding: '4px 0',
-                    }}
-                    onClick={() => setShowNotes(!showNotes)}
+                    type="submit"
+                    className="schedule-submit-btn"
+                    style={{ width: 'auto', padding: '10px 24px' }}
                   >
-                    {showNotes ? '— Hide notes' : '+ Add task notes / details'}
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Schedule Task
                   </button>
-
-                  {showNotes && (
-                    <div style={{ marginTop: '8px' }}>
-                      <textarea
-                        className="glass-text-input"
-                        rows="2"
-                        placeholder="Context, links, instructions..."
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                      ></textarea>
-                    </div>
-                  )}
                 </div>
-
-                <button type="submit" className="schedule-submit-btn">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
-                  Schedule Task
-                </button>
               </form>
             </article>
 

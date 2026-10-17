@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import './mobile.css';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
+import { parseTaskNlp } from '../utils/taskNlp';
 
 // Safe haptic trigger
 const triggerHaptic = async (type = 'light') => {
@@ -55,6 +56,23 @@ export default function MobileView({
 }) {
   const [isNewSheetOpen, setIsNewSheetOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [isQuickAddFocused, setIsQuickAddFocused] = useState(false);
+  const [mobileNlpDismissed, setMobileNlpDismissed] = useState(false);
+  const [showMobileCustomDate, setShowMobileCustomDate] = useState(false);
+
+  const mobileNlpSuggestion = useMemo(() => {
+    if (mobileNlpDismissed || !title.trim()) return { hasSuggestion: false };
+    return parseTaskNlp(title);
+  }, [title, mobileNlpDismissed]);
+
+  const applyMobileNlp = () => {
+    if (!mobileNlpSuggestion.hasSuggestion) return;
+    triggerHaptic('medium');
+    if (mobileNlpSuggestion.detectedDueAt) setDueAt(mobileNlpSuggestion.detectedDueAt);
+    if (mobileNlpSuggestion.detectedPriority) setPriority(mobileNlpSuggestion.detectedPriority);
+    setTitle(mobileNlpSuggestion.cleanTitle);
+    setMobileNlpDismissed(true);
+  };
 
   const navTabs = [
     { id: 'today', label: 'Today', countKey: 'today' },
@@ -77,9 +95,13 @@ export default function MobileView({
 
   const onSubmitTask = async (e) => {
     e.preventDefault();
+    if (!title.trim()) return;
     triggerHaptic('success');
     await handleCreateTask(e);
     setIsNewSheetOpen(false);
+    setIsQuickAddFocused(false);
+    setMobileNlpDismissed(false);
+    setShowMobileCustomDate(false);
   };
 
   const onToggleDone = async (task, e) => {
@@ -350,6 +372,143 @@ export default function MobileView({
         </div>
       </div>
 
+      {/* Mobile Instant Quick Add Strip */}
+      <div className="mobile-quick-add-strip">
+        <form onSubmit={onSubmitTask} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="mobile-quick-input-row">
+            <span style={{ fontSize: '0.95rem' }}>⚡</span>
+            <input
+              type="text"
+              className="mobile-quick-input-field"
+              placeholder="Quick add task... (e.g. Call John tomorrow 9am !p1)"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                if (mobileNlpDismissed) setMobileNlpDismissed(false);
+              }}
+              onFocus={() => setIsQuickAddFocused(true)}
+            />
+            <button
+              type="submit"
+              className="mobile-quick-add-btn"
+              disabled={!title.trim()}
+              style={{ opacity: title.trim() ? 1 : 0.35 }}
+              title="Schedule task"
+            >
+              ➔
+            </button>
+          </div>
+
+          {/* Quick interactive chips & NLP preview */}
+          {(isQuickAddFocused || title.trim() || dueAt) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideDownFade 0.2s ease' }}>
+              {mobileNlpSuggestion.hasSuggestion && (
+                <div className="nlp-suggestion-banner" style={{ padding: '5px 10px', fontSize: '0.72rem' }}>
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    ✨ {mobileNlpSuggestion.label}
+                  </span>
+                  <button
+                    type="button"
+                    className="nlp-suggestion-apply-btn"
+                    onClick={applyMobileNlp}
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
+
+              <div className="mobile-quick-chips-scroll">
+                <button
+                  type="button"
+                  className={`pill-toggle-btn ${priority === 1 ? 'active p1' : (priority === 2 ? 'active p2' : 'active p3')}`}
+                  style={{ padding: '3px 9px', fontSize: '0.68rem' }}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setPriority(priority === 1 ? 2 : (priority === 2 ? 3 : 1));
+                  }}
+                  title="Cycle priority"
+                >
+                  {priority === 1 ? '🔥 High' : (priority === 2 ? '⚡ Med' : '🌱 Low')}
+                </button>
+
+                <button
+                  type="button"
+                  className={`deadline-pill ${dueAt === calculatePreset(null, 2) ? 'active' : ''}`}
+                  style={{ padding: '3px 9px', fontSize: '0.68rem' }}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setDueAt(dueAt === calculatePreset(null, 2) ? '' : calculatePreset(null, 2));
+                  }}
+                >
+                  +2h
+                </button>
+
+                <button
+                  type="button"
+                  className={`deadline-pill ${dueAt === calculatePreset('tonight') ? 'active' : ''}`}
+                  style={{ padding: '3px 9px', fontSize: '0.68rem' }}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setDueAt(dueAt === calculatePreset('tonight') ? '' : calculatePreset('tonight'));
+                  }}
+                >
+                  Tonight
+                </button>
+
+                <button
+                  type="button"
+                  className={`deadline-pill ${dueAt === calculatePreset('tomorrow_morning') ? 'active' : ''}`}
+                  style={{ padding: '3px 9px', fontSize: '0.68rem' }}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setDueAt(dueAt === calculatePreset('tomorrow_morning') ? '' : calculatePreset('tomorrow_morning'));
+                  }}
+                >
+                  Tomorrow
+                </button>
+
+                <button
+                  type="button"
+                  className={`deadline-pill ${dueAt === calculatePreset('friday') ? 'active' : ''}`}
+                  style={{ padding: '3px 9px', fontSize: '0.68rem' }}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setDueAt(dueAt === calculatePreset('friday') ? '' : calculatePreset('friday'));
+                  }}
+                >
+                  Friday
+                </button>
+
+                <button
+                  type="button"
+                  className="deadline-pill"
+                  style={{ padding: '3px 9px', fontSize: '0.68rem' }}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setIsNewSheetOpen(true);
+                  }}
+                >
+                  📝 Details...
+                </button>
+
+                {dueAt && (
+                  <button
+                    type="button"
+                    style={{ background: 'transparent', border: 'none', color: '#f87171', fontSize: '0.68rem', fontWeight: 600, padding: '2px 4px', cursor: 'pointer' }}
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setDueAt('');
+                    }}
+                  >
+                    ✕ Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </form>
+      </div>
+
       {/* Horizontal Scrollable Tabs */}
       <nav className="mobile-tabs-scroll" aria-label="Task category tabs">
         {navTabs.map((tab) => {
@@ -617,13 +776,25 @@ export default function MobileView({
                 <input
                   type="text"
                   className="glass-text-input"
-                  placeholder="e.g. Call client & review portfolio"
+                  placeholder="e.g. Call client tomorrow 10am !p1"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    if (mobileNlpDismissed) setMobileNlpDismissed(false);
+                  }}
                   maxLength={200}
                   required
                   autoFocus
                 />
+
+                {mobileNlpSuggestion.hasSuggestion && (
+                  <div className="nlp-suggestion-banner" style={{ marginTop: 6, padding: '6px 12px', fontSize: '0.74rem' }}>
+                    <span>✨ {mobileNlpSuggestion.label}</span>
+                    <button type="button" className="nlp-suggestion-apply-btn" onClick={applyMobileNlp}>
+                      Apply
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="glass-input-row">
@@ -632,49 +803,81 @@ export default function MobileView({
                   <button
                     type="button"
                     className={`segment-btn ${priority === 1 ? 'active p1' : ''}`}
-                    onClick={() => setPriority(1)}
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setPriority(1);
+                    }}
                   >
-                    🔥 High
+                    🔥 High (P1)
                   </button>
                   <button
                     type="button"
                     className={`segment-btn ${priority === 2 ? 'active p2' : ''}`}
-                    onClick={() => setPriority(2)}
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setPriority(2);
+                    }}
                   >
-                    ⚡ Med
+                    ⚡ Med (P2)
                   </button>
                   <button
                     type="button"
                     className={`segment-btn ${priority === 3 ? 'active p3' : ''}`}
-                    onClick={() => setPriority(3)}
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setPriority(3);
+                    }}
                   >
-                    🌱 Low
+                    🌱 Low (P3)
                   </button>
                 </div>
               </div>
 
               <div className="deadline-picker-box">
-                <label className="glass-input-label">Deadline</label>
-                <input
-                  type="datetime-local"
-                  className="glass-text-input"
-                  value={dueAt}
-                  onChange={(e) => setDueAt(e.target.value)}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label className="glass-input-label" style={{ margin: 0 }}>Deadline</label>
+                  {dueAt && (
+                    <button
+                      type="button"
+                      style={{ background: 'transparent', border: 'none', color: '#f87171', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
+                      onClick={() => {
+                        triggerHaptic('light');
+                        setDueAt('');
+                      }}
+                    >
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
+
                 <div className="deadline-presets-grid">
-                  <button type="button" className="preset-chip-btn" onClick={() => setDueAt(calculatePreset(null, 2))}>+2h</button>
-                  <button type="button" className="preset-chip-btn" onClick={() => setDueAt(calculatePreset('tonight'))}>Tonight</button>
-                  <button type="button" className="preset-chip-btn" onClick={() => setDueAt(calculatePreset('tomorrow_morning'))}>Tomorrow 9am</button>
-                  <button type="button" className="preset-chip-btn" onClick={() => setDueAt(calculatePreset('friday'))}>Friday</button>
-                  {dueAt && <button type="button" className="preset-chip-btn clear" onClick={() => setDueAt('')}>Clear</button>}
+                  <button type="button" className={`preset-chip-btn ${dueAt === calculatePreset(null, 2) ? 'active' : ''}`} onClick={() => { triggerHaptic('light'); setDueAt(calculatePreset(null, 2)); }}>+2h</button>
+                  <button type="button" className={`preset-chip-btn ${dueAt === calculatePreset('tonight') ? 'active' : ''}`} onClick={() => { triggerHaptic('light'); setDueAt(calculatePreset('tonight')); }}>Tonight 9pm</button>
+                  <button type="button" className={`preset-chip-btn ${dueAt === calculatePreset('tomorrow_morning') ? 'active' : ''}`} onClick={() => { triggerHaptic('light'); setDueAt(calculatePreset('tomorrow_morning')); }}>Tomorrow 9am</button>
+                  <button type="button" className={`preset-chip-btn ${dueAt === calculatePreset('tomorrow_evening') ? 'active' : ''}`} onClick={() => { triggerHaptic('light'); setDueAt(calculatePreset('tomorrow_evening')); }}>Tomorrow 5pm</button>
+                  <button type="button" className={`preset-chip-btn ${dueAt === calculatePreset('friday') ? 'active' : ''}`} onClick={() => { triggerHaptic('light'); setDueAt(calculatePreset('friday')); }}>Friday</button>
+                  <button type="button" className="preset-chip-btn" onClick={() => { triggerHaptic('light'); setShowMobileCustomDate(!showMobileCustomDate); }}>Custom Date...</button>
                 </div>
-                <div className={`dynamic-deadline-helper ${deadlineHelper.cls}`} style={{ fontSize: '0.72rem' }}>
-                  {deadlineHelper.text}
-                </div>
+
+                {showMobileCustomDate && (
+                  <input
+                    type="datetime-local"
+                    className="glass-text-input"
+                    style={{ marginTop: 6 }}
+                    value={dueAt}
+                    onChange={(e) => setDueAt(e.target.value)}
+                  />
+                )}
+
+                {dueAt && (
+                  <div className={`dynamic-deadline-helper ${deadlineHelper.cls}`} style={{ fontSize: '0.72rem', marginTop: 4 }}>
+                    ⏳ {deadlineHelper.text}
+                  </div>
+                )}
               </div>
 
               <div className="glass-input-row">
-                <label className="glass-input-label">Notes</label>
+                <label className="glass-input-label">Notes (Optional)</label>
                 <textarea
                   className="glass-text-input"
                   rows="2"
@@ -684,8 +887,8 @@ export default function MobileView({
                 ></textarea>
               </div>
 
-              <button type="submit" className="schedule-submit-btn" style={{ marginTop: 4 }}>
-                Schedule Task
+              <button type="submit" className="schedule-submit-btn" style={{ marginTop: 6 }}>
+                Schedule Task 🎯
               </button>
             </form>
           </div>
