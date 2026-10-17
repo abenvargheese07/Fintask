@@ -581,89 +581,146 @@ export default function MobileView({
             const badge = getDeadlineBadge(task.due_at, task.done);
             const tier = getEscalatingFrequencyTier(task.due_at, task.done, task.priority);
             const isHighUrgency = !task.done && (badge.cls === 'overdue' || task.priority === 1);
-            const cardClass = isHighUrgency ? 'task-cream-card' : 'task-glass-card';
 
             return (
-              <div
+              <article
                 key={task.id}
-                className={`${cardClass} ${task.done ? 'done' : ''}`}
-                style={{ borderRadius: 20, padding: '14px 16px' }}
+                className={`task-item-card ${isHighUrgency ? 'urgent-tier' : ''} ${task.done ? 'is-done' : ''}`}
               >
-                <div className="card-header-row">
-                  <div className="card-title-col">
-                    <h4 className={`task-card-title ${task.done ? 'strike' : ''}`} style={{ fontSize: '0.92rem' }}>
-                      {task.title}
-                    </h4>
-                    {task.notes && (
-                      <p className="task-card-notes" style={{ fontSize: '0.72rem' }}>{task.notes}</p>
-                    )}
+                {/* Left: Circular Completion Checkbox */}
+                <button
+                  type="button"
+                  className={`task-checkbox-btn ${task.done ? 'checked' : ''}`}
+                  onClick={(e) => {
+                    triggerHaptic('medium');
+                    onToggleDone(task, e);
+                  }}
+                  title={task.done ? 'Mark as incomplete' : 'Mark as complete'}
+                  aria-label={task.done ? 'Mark as incomplete' : 'Mark as complete'}
+                >
+                  {task.done && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  )}
+                </button>
 
-                    {tier && (
-                      <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        fontSize: '0.65rem',
-                        fontWeight: 700,
-                        marginTop: 4,
-                        padding: '2px 8px',
-                        borderRadius: 999,
-                        background: isHighUrgency ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.1)',
-                        color: isHighUrgency ? '#dc2626' : '#818cf8',
-                      }}>
-                        {tier.text}
-                      </div>
-                    )}
+                {/* Main Content Area */}
+                <div className="task-content-main">
+                  {/* Top Row: Title, Priority Tag, Cadence Tier, Action Buttons */}
+                  <div className="task-row-top">
+                    <div className="task-title-group">
+                      <h4 className={`task-headline ${task.done ? 'strike' : ''}`}>
+                        {task.title}
+                      </h4>
+
+                      {/* Priority Chip */}
+                      {task.priority === 1 && (
+                        <span className="task-priority-tag p1">🔥 High</span>
+                      )}
+                      {task.priority === 2 && (
+                        <span className="task-priority-tag p2">⚡ Med</span>
+                      )}
+                      {task.priority === 3 && (
+                        <span className="task-priority-tag p3">🌱 Low</span>
+                      )}
+
+                      {/* Escalating Urgency Cadence */}
+                      {!task.done && tier && (
+                        <span className={`task-tier-tag ${isHighUrgency ? 'urgent' : ''}`}>
+                          {tier.text}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="task-action-btns">
+                      <button
+                        type="button"
+                        className="task-icon-action-btn"
+                        title="Edit"
+                        onClick={(e) => {
+                          triggerHaptic('light');
+                          openEditModal(task, e);
+                        }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M12 20h9"></path>
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="task-icon-action-btn delete"
+                        title="Delete"
+                        onClick={(e) => {
+                          triggerHaptic('light');
+                          handleDeleteTask(task.id, task.title, e);
+                        }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="card-action-btns">
-                    <button
-                      className="icon-btn-subtle"
-                      title="Edit"
-                      onClick={(e) => openEditModal(task, e)}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 20h9"></path>
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                      </svg>
-                    </button>
-                    <button
-                      className="icon-btn-subtle delete"
-                      title="Delete"
-                      onClick={(e) => handleDeleteTask(task.id, task.title, e)}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+                  {/* Notes */}
+                  {task.notes && (
+                    <p className="task-notes-snippet">{task.notes}</p>
+                  )}
 
-                <div className="card-footer-row" style={{ marginTop: 6 }}>
-                  <div>
-                    <div className={`card-deadline-badge ${badge.cls}`} style={{ fontSize: '0.72rem' }}>
-                      {badge.label}
+                  {/* Bottom Row: Deadline Chip & Snooze Pills */}
+                  <div className="task-row-bottom">
+                    <div className={`task-deadline-chip ${badge.cls}`}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                      </svg>
+                      <span>{badge.label}</span>
                     </div>
 
                     {!task.done && (
-                      <div className="card-snooze-row" style={{ marginTop: 4 }}>
-                        <button className="quick-snooze-chip" onClick={(e) => onSnooze(task.id, 15, e)}>+15m</button>
-                        <button className="quick-snooze-chip" onClick={(e) => onSnooze(task.id, 60, e)}>+1h</button>
-                        <button className="quick-snooze-chip" onClick={(e) => onSnooze(task.id, 1440, e)}>+1d</button>
+                      <div className="task-snooze-group">
+                        <span className="snooze-label">Snooze:</span>
+                        <button
+                          type="button"
+                          className="task-snooze-pill"
+                          onClick={(e) => {
+                            triggerHaptic('light');
+                            onSnooze(task.id, 15, e);
+                          }}
+                        >
+                          +15m
+                        </button>
+                        <button
+                          type="button"
+                          className="task-snooze-pill"
+                          onClick={(e) => {
+                            triggerHaptic('light');
+                            onSnooze(task.id, 60, e);
+                          }}
+                        >
+                          +1h
+                        </button>
+                        <button
+                          type="button"
+                          className="task-snooze-pill"
+                          onClick={(e) => {
+                            triggerHaptic('light');
+                            onSnooze(task.id, 1440, e);
+                          }}
+                        >
+                          +1d
+                        </button>
                       </div>
                     )}
                   </div>
-
-                  <div
-                    className="vision-switch"
-                    onClick={(e) => onToggleDone(task, e)}
-                    title={task.done ? 'Mark active' : 'Mark completed'}
-                  >
-                    <span className={`switch-pill ${!task.done ? '' : 'active'}`}>✕</span>
-                    <span className={`switch-pill ${!task.done ? 'active' : ''}`}>✓</span>
-                  </div>
                 </div>
-              </div>
+              </article>
             );
           })
         )}
