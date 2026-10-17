@@ -7,7 +7,10 @@ import {
   setupNotificationChannel,
   triggerNativeTestAlert,
   scheduleTaskNotifications,
+  scheduleAllActiveTasks,
   cancelTaskNotifications,
+  initMobileNotifications,
+  showNativeNotification,
 } from './mobile/notifications';
 
 export const DEFAULT_CLOUD_SERVER = 'https://web-production-975c4.up.railway.app';
@@ -104,6 +107,7 @@ export default function App() {
   const [notificationsAllowed, setNotificationsAllowed] = useState(
     typeof Notification !== 'undefined' ? Notification.permission === 'granted' : false
   );
+  const [dismissedBanner, setDismissedBanner] = useState(false);
   // Sync & Server URL State
   const [serverUrl, setServerUrl] = useState(() => getInitialServerUrl());
   const [syncStatus, setSyncStatus] = useState('checking'); // 'connected' | 'offline' | 'checking'
@@ -214,6 +218,14 @@ export default function App() {
     const h = pad(date.getHours());
     const min = pad(date.getMinutes());
     return `${y}-${m}-${d}T${h}:${min}`;
+  };
+
+  const getLocalDateString = (date) => {
+    if (!date) return '';
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
 
   const calculatePreset = (type, hours) => {
@@ -361,29 +373,31 @@ export default function App() {
   };
 
   const filterTasksByView = (allTasks, view) => {
-    const todayStr = new Date().toISOString().substring(0, 10);
-    const nowIso = new Date().toISOString();
+    const now = Date.now();
+    const todayStr = getLocalDateString(new Date());
     if (view === 'done') return allTasks.filter((t) => t.done);
-    if (view === 'today') return allTasks.filter((t) => !t.done && t.due_at && t.due_at.substring(0, 10) <= todayStr);
-    if (view === 'upcoming') return allTasks.filter((t) => !t.done && (!t.due_at || t.due_at.substring(0, 10) > todayStr));
-    if (view === 'overdue') return allTasks.filter((t) => !t.done && t.due_at && t.due_at < nowIso);
+    if (view === 'overdue') return allTasks.filter((t) => !t.done && t.due_at && new Date(t.due_at).getTime() < now);
+    if (view === 'today') return allTasks.filter((t) => !t.done && t.due_at && getLocalDateString(t.due_at) <= todayStr);
+    if (view === 'upcoming') return allTasks.filter((t) => !t.done && (!t.due_at || (getLocalDateString(t.due_at) > todayStr && new Date(t.due_at).getTime() >= now)));
     return allTasks;
   };
 
   const computeLocalStats = (allTasks) => {
-    const todayStr = new Date().toISOString().substring(0, 10);
-    const nowIso = new Date().toISOString();
+    const now = Date.now();
+    const todayStr = getLocalDateString(new Date());
     const total = allTasks.length;
     const done = allTasks.filter((t) => t.done).length;
-    const overdue = allTasks.filter((t) => !t.done && t.due_at && t.due_at < nowIso).length;
-    const today = allTasks.filter((t) => !t.done && t.due_at && t.due_at.substring(0, 10) === todayStr).length;
+    const overdue = allTasks.filter((t) => !t.done && t.due_at && new Date(t.due_at).getTime() < now).length;
+    const today = allTasks.filter((t) => !t.done && t.due_at && getLocalDateString(t.due_at) === todayStr).length;
     const pending = allTasks.filter((t) => !t.done).length;
     return { total, done, overdue, today, pending };
   };
 
   const loadStats = async () => {
+    const nowStr = formatInputDatetime(new Date());
+    const todayStr = getLocalDateString(new Date());
     try {
-      const res = await apiFetch('/api/stats');
+      const res = await apiFetch(`/api/stats?client_now=${encodeURIComponent(nowStr)}&client_today=${encodeURIComponent(todayStr)}`);
       const ct = res.headers.get('content-type') || '';
       if (res.ok && ct.includes('application/json')) {
         setStats(await res.json());
@@ -394,13 +408,17 @@ export default function App() {
   };
 
   const loadTasks = async () => {
+    const nowStr = formatInputDatetime(new Date());
+    const todayStr = getLocalDateString(new Date());
     try {
-      const res = await apiFetch(`/api/tasks?view=${activeTab}`);
+      const res = await apiFetch(`/api/tasks?view=${activeTab}&client_now=${encodeURIComponent(nowStr)}&client_today=${encodeURIComponent(todayStr)}`);
       const ct = res.headers.get('content-type') || '';
       if (res.ok && ct.includes('application/json')) {
         const data = await res.json();
         setTasks(data);
-        saveLocalTasks(data);
+        if (Capacitor.isNativePlatform()) {
+          scheduleAllActiveTasks(data);
+        }
         return;
       }
     } catch (e) {}
@@ -409,11 +427,24 @@ export default function App() {
 
   const loadSettings = async () => {
     try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const offset = new Date().getTimezoneOffset();
       const res = await apiFetch('/api/settings');
       const ct = res.headers.get('content-type') || '';
       if (res.ok && ct.includes('application/json')) {
         const data = await res.json();
-        setNtfyTopic(data.ntfy_topic || '');
+        const topic = data.ntfy_topic || '';
+        setNtfyTopic(topic);
+        try {
+          localStorage.setItem('fintask_ntfy_topic', topic);
+        } catch (e) {}
+        if (!data.timezone || data.timezone !== tz) {
+          apiFetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timezone: tz, timezone_offset: offset }),
+          }).catch(() => {});
+        }
         return;
       }
     } catch (e) {}
@@ -444,15 +475,7 @@ export default function App() {
         playChime(latest.urgency);
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
-        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          try {
-            new Notification(latest.title, {
-              body: latest.message,
-              icon: '/vite.svg',
-              tag: `fintask-${latest.id}`,
-            });
-          } catch (e) {}
-        }
+        await showNativeNotification(latest.title, latest.message, latest.id);
 
         showToast(latest.message);
         refreshAll();
@@ -497,26 +520,88 @@ export default function App() {
     }
   };
 
+  const alertedDeadlinesRef = useRef(new Set());
+
+  const checkClientDeadlines = () => {
+    const now = Date.now();
+    tasks.forEach((task) => {
+      if (task.done || !task.due_at) return;
+      const dueTime = new Date(task.due_at).getTime();
+      if (isNaN(dueTime)) return;
+      const diffMin = (dueTime - now) / 60000;
+
+      let alertKey = null;
+      let alertMsg = null;
+      let alertUrgency = null;
+
+      if (diffMin <= 0 && diffMin > -2) {
+        alertKey = `${task.id}-deadline`;
+        alertMsg = `⏰ Deadline reached for "${task.title}"!`;
+        alertUrgency = 'critical';
+      } else if (diffMin <= -2 && diffMin > -5) {
+        alertKey = `${task.id}-overdue-2m`;
+        alertMsg = `⚠️ OVERDUE: "${task.title}" was due 2m ago!`;
+        alertUrgency = 'emergency';
+      } else if (diffMin <= -15 && diffMin > -20) {
+        alertKey = `${task.id}-overdue-15m`;
+        alertMsg = `🔥 OVERDUE: "${task.title}" was due 15m ago! Complete or snooze.`;
+        alertUrgency = 'emergency';
+      } else if (diffMin > 0 && diffMin <= 10) {
+        alertKey = `${task.id}-approaching-10m`;
+        alertMsg = `⚡ 10 mins remaining for "${task.title}"!`;
+        alertUrgency = 'urgent';
+      }
+
+      if (alertKey && !alertedDeadlinesRef.current.has(alertKey)) {
+        alertedDeadlinesRef.current.add(alertKey);
+        playChime(alertUrgency);
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        showNativeNotification(alertMsg, 'Tap to complete or snooze task in Fintask', alertKey);
+        showToast(alertMsg);
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      initMobileNotifications().then((granted) => {
+        if (granted) setNotificationsAllowed(true);
+      });
+    }
+  }, []);
+
   useEffect(() => {
     refreshAll();
     loadSettings();
     syncWithServer();
     const taskInterval = setInterval(refreshAll, 10000);
     const pollInterval = setInterval(pollNotifications, 4000);
+    const deadlineInterval = setInterval(checkClientDeadlines, 10000);
     return () => {
       clearInterval(taskInterval);
       clearInterval(pollInterval);
+      clearInterval(deadlineInterval);
     };
   }, [activeTab, serverUrl]);
 
   const requestNotificationPermission = async () => {
-    if (typeof Notification === 'undefined') return;
-    const res = await Notification.requestPermission();
-    setNotificationsAllowed(res === 'granted');
-    if (res === 'granted') {
-      showToast('Device notifications enabled! 🔔');
-      playChime('medium');
+    let granted = false;
+    if (Capacitor.isNativePlatform()) {
+      granted = await initMobileNotifications();
+    } else if (typeof Notification !== 'undefined') {
+      try {
+        const res = await Notification.requestPermission();
+        granted = res === 'granted';
+      } catch (err) {}
     }
+    setNotificationsAllowed(granted);
+    if (granted) {
+      showToast('Notifications active on this device! 🔔');
+      playChime('medium');
+    } else {
+      showToast('Notification permission not granted.');
+    }
+    return granted;
   };
 
   const handleSaveSettings = async (e) => {
@@ -751,6 +836,9 @@ export default function App() {
           syncStatus={syncStatus}
           syncWithServer={syncWithServer}
           serverUrl={serverUrl}
+          ntfyTopic={ntfyTopic}
+          notificationsAllowed={notificationsAllowed}
+          requestNotificationPermission={requestNotificationPermission}
         />
 
         {/* Global Multi-Device Modal accessible from Mobile */}
@@ -991,9 +1079,23 @@ export default function App() {
     <div className="app-viewport">
       {/* Ambient Top Bar */}
       <div className="ambient-topbar">
-        <div className="ambient-author">
-          Fintask Workspace
-          <span>Escalating Urgency & Multi-Device Engine</span>
+        <div className="ambient-author" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img
+            src="/logo.png"
+            alt="Fintask Logo"
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              objectFit: 'cover',
+              border: '1px solid rgba(255, 255, 255, 0.22)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+            }}
+          />
+          <div>
+            Fintask Workspace
+            <span>Escalating Urgency & Multi-Device Engine</span>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <a
@@ -1050,6 +1152,53 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Desktop Web Push Notifications Activation Banner */}
+      {!notificationsAllowed && typeof Notification !== 'undefined' && !dismissedBanner && (
+        <div style={{
+          width: '100%',
+          maxWidth: '1200px',
+          marginBottom: '18px',
+          background: 'linear-gradient(135deg, rgba(224, 169, 109, 0.2), rgba(245, 158, 11, 0.12))',
+          border: '1px solid rgba(224, 169, 109, 0.45)',
+          borderRadius: '18px',
+          padding: '12px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '14px',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+          zIndex: 25,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.86rem', color: '#fef3c7' }}>
+            <span style={{ fontSize: '1.3rem' }}>🔔</span>
+            <div>
+              <strong>Enable Active Browser Notifications:</strong> Receive audio alarms and popup alerts directly on this screen when tasks are due or overdue.
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <button
+              type="button"
+              className="btn-primary-pill"
+              style={{ fontSize: '0.8rem', padding: '7px 16px', background: '#e0a96d', color: '#111', fontWeight: 700 }}
+              onClick={requestNotificationPermission}
+            >
+              Enable Notifications
+            </button>
+            <button
+              type="button"
+              className="icon-btn-subtle"
+              style={{ fontSize: '0.85rem', width: 28, height: 28 }}
+              onClick={() => setDismissedBanner(true)}
+              title="Dismiss notification prompt"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Spatial Container */}
       <div className="spatial-container">
@@ -1115,7 +1264,18 @@ export default function App() {
           {/* Top Window Navigation */}
           <header className="window-nav">
             <div className="window-logo">
-              <div className="logo-monogram">ft</div>
+              <img
+                src="/logo.png"
+                alt="Fintask Logo"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 11,
+                  objectFit: 'cover',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)',
+                }}
+              />
               <span>Fintask</span>
             </div>
 

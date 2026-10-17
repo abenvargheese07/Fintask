@@ -1,7 +1,8 @@
 import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / 'fintask.db'
@@ -81,12 +82,38 @@ def add_task(title, notes='', due_at=None, priority=2):
     return get_task(task_id)
 
 
-def list_tasks(view='today'):
-    today = datetime.now().strftime('%Y-%m-%d')
-    now = datetime.now().strftime(FMT)
+def get_user_now_and_today(client_now=None, client_today=None):
+    if client_now and client_today:
+        return client_now, client_today
+
+    tz = None
+    tz_name = get_setting('timezone')
+    if tz_name:
+        try:
+            from zoneinfo import ZoneInfo
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            pass
+    if not tz:
+        offset_min = get_setting('timezone_offset')
+        if offset_min is not None:
+            try:
+                # JS getTimezoneOffset() is negative of UTC offset
+                tz = timezone(timedelta(minutes=-int(offset_min)))
+            except Exception:
+                pass
+
+    current_dt = datetime.now(tz) if tz else datetime.now()
+    now = client_now or current_dt.strftime(FMT)
+    today = client_today or current_dt.strftime('%Y-%m-%d')
+    return now, today
+
+
+def list_tasks(view='today', client_now=None, client_today=None):
+    now, today = get_user_now_and_today(client_now, client_today)
     queries = {
         'today': ('done = 0 AND due_at IS NOT NULL AND substr(due_at, 1, 10) <= ?', (today,)),
-        'upcoming': ('done = 0 AND (due_at IS NULL OR substr(due_at, 1, 10) > ?)', (today,)),
+        'upcoming': ('done = 0 AND (due_at IS NULL OR (substr(due_at, 1, 10) >= ? AND due_at >= ?))', (today, now)),
         'overdue': ('done = 0 AND due_at IS NOT NULL AND due_at < ?', (now,)),
         'done': ('done = 1', ()),
         'all': ('1 = 1', ()),
@@ -98,9 +125,8 @@ def list_tasks(view='today'):
     return [dict(r) for r in rows]
 
 
-def get_stats():
-    today = datetime.now().strftime('%Y-%m-%d')
-    now = datetime.now().strftime(FMT)
+def get_stats(client_now=None, client_today=None):
+    now, today = get_user_now_and_today(client_now, client_today)
     with get_conn() as conn:
         total = conn.execute('SELECT COUNT(*) FROM tasks').fetchone()[0]
         done = conn.execute('SELECT COUNT(*) FROM tasks WHERE done = 1').fetchone()[0]

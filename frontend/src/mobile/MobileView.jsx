@@ -49,6 +49,9 @@ export default function MobileView({
   syncStatus,
   syncWithServer,
   serverUrl,
+  ntfyTopic,
+  notificationsAllowed,
+  requestNotificationPermission,
 }) {
   const [isNewSheetOpen, setIsNewSheetOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -94,7 +97,18 @@ export default function MobileView({
       {/* Safe Area Top Header */}
       <header className="mobile-header">
         <div className="mobile-brand">
-          <div className="mobile-logo-monogram">ft</div>
+          <img
+            src="/logo.png"
+            alt="Fintask Logo"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              objectFit: 'cover',
+              border: '1px solid rgba(255, 255, 255, 0.22)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.35)',
+            }}
+          />
           <div>
             <h2>Fintask</h2>
             <span>Mobile Edition</span>
@@ -251,35 +265,90 @@ export default function MobileView({
         </div>
       </section>
 
-      {/* Test Notification Action for Phone */}
-      {handleTestAlert && (
-        <div style={{ padding: '0 18px 8px' }}>
+      {/* Mobile Notification Actions & Topic Subscribe */}
+      <div style={{ padding: '0 18px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {!notificationsAllowed && requestNotificationPermission && (
           <button
             type="button"
-            className="mobile-test-alert-btn"
             style={{
               width: '100%',
               padding: '9px 14px',
               borderRadius: 14,
-              border: '1px solid rgba(224, 169, 109, 0.4)',
-              background: 'linear-gradient(135deg, rgba(224, 169, 109, 0.18), rgba(255, 255, 255, 0.05))',
-              color: '#f6d8ae',
+              border: '1px solid rgba(245, 158, 11, 0.5)',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(0, 0, 0, 0.2))',
+              color: '#fde68a',
               fontSize: '0.8rem',
-              fontWeight: 600,
+              fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
               cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
+              boxShadow: '0 4px 14px rgba(0,0,0,0.3)'
             }}
-            onClick={handleTestAlert}
+            onClick={requestNotificationPermission}
           >
             <span>🔔</span>
-            <span>Test Push Notification on This Phone</span>
+            <span>Enable App Notifications on This Phone</span>
           </button>
+        )}
+
+        <div style={{ display: 'flex', gap: 6 }}>
+          {handleTestAlert && (
+            <button
+              type="button"
+              className="mobile-test-alert-btn"
+              style={{
+                flex: 1,
+                padding: '8px 10px',
+                borderRadius: 12,
+                border: '1px solid rgba(224, 169, 109, 0.4)',
+                background: 'linear-gradient(135deg, rgba(224, 169, 109, 0.16), rgba(255, 255, 255, 0.04))',
+                color: '#f6d8ae',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                cursor: 'pointer'
+              }}
+              onClick={handleTestAlert}
+            >
+              <span>⚡</span>
+              <span>Test Alert</span>
+            </button>
+          )}
+
+          {ntfyTopic && (
+            <a
+              href={`https://ntfy.sh/${ntfyTopic}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                flex: 1.2,
+                padding: '8px 10px',
+                borderRadius: 12,
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(255, 255, 255, 0.04))',
+                color: '#7dd3fc',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                textDecoration: 'none',
+                cursor: 'pointer'
+              }}
+              title="Subscribe to background lock-screen push alerts via ntfy"
+            >
+              <span>📲</span>
+              <span>Lock-Screen Push ↗</span>
+            </a>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Horizontal Scrollable Tabs */}
       <nav className="mobile-tabs-scroll" aria-label="Task category tabs">

@@ -70,13 +70,17 @@ def health():
 
 
 @app.get('/api/stats')
-def get_stats():
-    return db.get_stats()
+def get_stats(client_now: Optional[str] = None, client_today: Optional[str] = None):
+    return db.get_stats(client_now=client_now, client_today=client_today)
 
 
 @app.get('/api/tasks')
-def list_tasks(view: Literal['today', 'upcoming', 'overdue', 'done', 'all'] = 'today'):
-    return db.list_tasks(view)
+def list_tasks(
+    view: Literal['today', 'upcoming', 'overdue', 'done', 'all'] = 'today',
+    client_now: Optional[str] = None,
+    client_today: Optional[str] = None
+):
+    return db.list_tasks(view, client_now=client_now, client_today=client_today)
 
 
 @app.post('/api/tasks', status_code=201)
@@ -126,19 +130,32 @@ def poll_notifications(since_id: int = Query(0, ge=0)):
 
 @app.get('/api/settings')
 def get_settings():
+    topic = db.get_setting('ntfy_topic')
+    if not topic:
+        import secrets
+        topic = f'fintask-{secrets.token_hex(4)}'
+        db.set_setting('ntfy_topic', topic)
     return {
-        'ntfy_topic': db.get_setting('ntfy_topic', '')
+        'ntfy_topic': topic,
+        'timezone': db.get_setting('timezone', 'Asia/Kolkata'),
+        'timezone_offset': db.get_setting('timezone_offset', None),
     }
 
 
 class SettingsUpdate(BaseModel):
     ntfy_topic: Optional[str] = None
+    timezone: Optional[str] = None
+    timezone_offset: Optional[int] = None
 
 
 @app.post('/api/settings')
 def update_settings(payload: SettingsUpdate):
-    if payload.ntfy_topic is not None:
+    if payload.ntfy_topic is not None and payload.ntfy_topic.strip():
         db.set_setting('ntfy_topic', payload.ntfy_topic.strip())
+    if payload.timezone is not None and payload.timezone.strip():
+        db.set_setting('timezone', payload.timezone.strip())
+    if payload.timezone_offset is not None:
+        db.set_setting('timezone_offset', str(payload.timezone_offset))
     return get_settings()
 
 

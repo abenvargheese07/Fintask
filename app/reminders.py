@@ -2,13 +2,30 @@ import json
 import logging
 import subprocess
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from . import db
 
 logger = logging.getLogger('fintask.reminders')
 scheduler = BackgroundScheduler(timezone='UTC')
+
+
+def get_user_timezone():
+    tz_name = db.get_setting('timezone')
+    if tz_name:
+        try:
+            return ZoneInfo(tz_name)
+        except Exception:
+            pass
+    offset_min = db.get_setting('timezone_offset')
+    if offset_min is not None:
+        try:
+            return timezone(timedelta(minutes=-int(offset_min)))
+        except Exception:
+            pass
+    return datetime.now().astimezone().tzinfo or timezone.utc
 
 
 def send_mac_notification(title, message, sound='Glass'):
@@ -89,7 +106,12 @@ def evaluate_task_reminder(task, now):
     except ValueError:
         return None
 
-    delta_minutes = (due_dt - now).total_seconds() / 60
+    user_tz = get_user_timezone()
+    if due_dt.tzinfo is None:
+        due_dt = due_dt.replace(tzinfo=user_tz)
+
+    now_aware = datetime.now(timezone.utc)
+    delta_minutes = (due_dt - now_aware).total_seconds() / 60
 
     if delta_minutes > 1440:
         # More than 24 hours away
@@ -137,7 +159,9 @@ def evaluate_task_reminder(task, now):
 
     try:
         last_dt = datetime.fromisoformat(last_reminded_str)
-        elapsed_min = (now - last_dt).total_seconds() / 60
+        if last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=timezone.utc)
+        elapsed_min = (now_aware - last_dt).total_seconds() / 60
         if elapsed_min >= req_interval:
             return {'urgency': urgency, 'sound': sound, 'msg': msg}
     except ValueError:
