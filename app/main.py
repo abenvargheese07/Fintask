@@ -177,7 +177,6 @@ from fastapi.responses import FileResponse
 def download_apk():
     apk_candidates = [
         Path(__file__).resolve().parent / 'downloads/fintask.apk',
-        Path(__file__).resolve().parent / 'fintask.apk',
         Path(__file__).resolve().parent.parent / 'frontend/android/app/build/outputs/apk/debug/app-debug.apk',
     ]
     apk_path = next((p for p in apk_candidates if p.exists()), None)
