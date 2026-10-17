@@ -376,11 +376,7 @@ export default function App() {
       const stored = localStorage.getItem('fintask_local_tasks');
       if (stored) return JSON.parse(stored);
     } catch (e) {}
-    return [
-      { id: 1, title: 'Figma UI System & Assets', notes: 'Design token alignment and component audit', priority: 1, due_at: '2026-10-18T17:00', done: 0 },
-      { id: 2, title: 'Unsplash Images Subscription', notes: 'Asset licensing payment for production site', priority: 2, due_at: '2026-10-12T10:00', done: 0 },
-      { id: 3, title: 'Dropbox Cloud Storage Renewal', notes: 'Backup storage archive allocation', priority: 3, due_at: '2026-10-25T14:00', done: 0 }
-    ];
+    return [];
   };
 
   const saveLocalTasks = (newTasks) => {
@@ -509,27 +505,14 @@ export default function App() {
       setStats(statsData);
       setSyncStatus('connected');
 
-      // Sync offline tasks up to server if missing
+      // Keep local cache in sync with the server authoritative list
       const allRes = await apiFetch('/api/tasks?view=all');
       if (allRes.ok) {
         const serverTasks = await allRes.json();
-        const serverIds = new Set(serverTasks.map((t) => t.id));
-        const localTasks = getLocalTasks();
-        const unsynced = localTasks.filter((t) => !serverIds.has(t.id));
-
-        for (const t of unsynced) {
-          try {
-            await apiFetch('/api/tasks', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(t),
-            });
-          } catch (e) {}
-        }
+        saveLocalTasks(serverTasks);
       }
 
       await loadTasks();
-      showToast('Web & Mobile fully synced! 🔄');
       return true;
     } catch (err) {
       setSyncStatus('offline');
@@ -676,7 +659,11 @@ export default function App() {
         body: JSON.stringify(newTask),
       });
       const ct = res.headers.get('content-type') || '';
-      if (!res.ok || !ct.includes('application/json')) {
+      if (res.ok && ct.includes('application/json')) {
+        const savedServerTask = await res.json();
+        const local = [savedServerTask, ...getLocalTasks().filter((t) => t.id !== newTask.id)];
+        saveLocalTasks(local);
+      } else {
         const local = [newTask, ...getLocalTasks()];
         saveLocalTasks(local);
       }
@@ -704,18 +691,14 @@ export default function App() {
   // Toggle completion
   const handleToggleComplete = async (task, e) => {
     if (e) e.stopPropagation();
+    const newDone = task.done ? 0 : 1;
+    const all = getLocalTasks().map((t) => (t.id === task.id ? { ...t, done: newDone } : t));
+    saveLocalTasks(all);
+
     try {
       const action = task.done ? 'reopen' : 'complete';
-      const res = await apiFetch(`/api/tasks/${task.id}/${action}`, { method: 'POST' });
-      const ct = res.headers.get('content-type') || '';
-      if (!res.ok || !ct.includes('application/json')) {
-        const all = getLocalTasks().map((t) => t.id === task.id ? { ...t, done: t.done ? 0 : 1 } : t);
-        saveLocalTasks(all);
-      }
-    } catch (err) {
-      const all = getLocalTasks().map((t) => t.id === task.id ? { ...t, done: t.done ? 0 : 1 } : t);
-      saveLocalTasks(all);
-    }
+      await apiFetch(`/api/tasks/${task.id}/${action}`, { method: 'POST' });
+    } catch (err) {}
 
     if (!task.done) {
       cancelTaskNotifications(task.id);
@@ -731,17 +714,13 @@ export default function App() {
   const handleSnooze = async (taskId, minutes, e) => {
     if (e) e.stopPropagation();
     const newDue = formatInputDatetime(new Date(Date.now() + minutes * 60000));
+    const all = getLocalTasks().map((t) => (t.id === taskId ? { ...t, due_at: newDue } : t));
+    saveLocalTasks(all);
+
     try {
-      const res = await apiFetch(`/api/tasks/${taskId}/snooze?minutes=${minutes}`, { method: 'POST' });
-      const ct = res.headers.get('content-type') || '';
-      if (!res.ok || !ct.includes('application/json')) {
-        const all = getLocalTasks().map((t) => t.id === taskId ? { ...t, due_at: newDue } : t);
-        saveLocalTasks(all);
-      }
-    } catch (err) {
-      const all = getLocalTasks().map((t) => t.id === taskId ? { ...t, due_at: newDue } : t);
-      saveLocalTasks(all);
-    }
+      await apiFetch(`/api/tasks/${taskId}/snooze?minutes=${minutes}`, { method: 'POST' });
+    } catch (err) {}
+
     const text = minutes >= 1440 ? 'tomorrow' : (minutes >= 60 ? `${minutes / 60}h` : `${minutes}m`);
     showToast(`Deadline postponed by ${text} ⏰`);
     refreshAll();
@@ -751,17 +730,15 @@ export default function App() {
   const handleDeleteTask = async (taskId, taskTitle, e) => {
     if (e) e.stopPropagation();
     if (!window.confirm(`Delete "${taskTitle}"?`)) return;
+
+    // Always remove from local storage immediately so it can never be resurrected
+    const remaining = getLocalTasks().filter((t) => t.id !== taskId);
+    saveLocalTasks(remaining);
+
     try {
-      const res = await apiFetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-      const ct = res.headers.get('content-type') || '';
-      if (!res.ok || !ct.includes('application/json')) {
-        const all = getLocalTasks().filter((t) => t.id !== taskId);
-        saveLocalTasks(all);
-      }
-    } catch (err) {
-      const all = getLocalTasks().filter((t) => t.id !== taskId);
-      saveLocalTasks(all);
-    }
+      await apiFetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+    } catch (err) {}
+
     cancelTaskNotifications(taskId);
     showToast('Task deleted');
     refreshAll();
@@ -788,25 +765,21 @@ export default function App() {
       due_at: editDueAt || null,
     };
 
+    const all = getLocalTasks().map((t) => (t.id === editingTask.id ? { ...t, ...updated } : t));
+    saveLocalTasks(all);
+
     try {
-      const res = await apiFetch(`/api/tasks/${editingTask.id}`, {
+      await apiFetch(`/api/tasks/${editingTask.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
       });
-      const ct = res.headers.get('content-type') || '';
-      if (!res.ok || !ct.includes('application/json')) {
-        const all = getLocalTasks().map((t) => t.id === editingTask.id ? { ...t, ...updated } : t);
-        saveLocalTasks(all);
-      }
-    } catch (err) {
-      const all = getLocalTasks().map((t) => t.id === editingTask.id ? { ...t, ...updated } : t);
-      saveLocalTasks(all);
-    }
+    } catch (err) {}
 
     scheduleTaskNotifications({ ...editingTask, ...updated });
     showToast('Task updated successfully');
     setEditingTask(null);
+    refreshAll();
   };
 
   const filteredTasks = tasks.filter((t) => {
