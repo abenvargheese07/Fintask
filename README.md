@@ -29,9 +29,7 @@ fintask/
 │   ├── db.py             # SQLite WAL storage & task lifecycle models
 │   ├── main.py           # REST endpoints, CORS, background lifecycles
 │   ├── reminders.py      # Background APScheduler & ntfy.sh push dispatcher
-│   ├── requirements.txt  # Python package dependencies
-│   ├── run.py            # Local backend server runner
-│   └── fintask.db        # SQLite database (WAL mode)
+│   └── requirements.txt  # Python package dependencies
 │
 ├── test/                 # 🧪 Backend & Integration Test Suites
 │   └── test_db.py        # Database CRUD, lifecycles, and API unit tests
@@ -47,17 +45,15 @@ fintask/
 │
 ├── deployment/           # 🚀 Container & Cloud Deployment Configurations
 │   ├── Dockerfile        # Production container image definition
-│   ├── railway.json      # Railway cloud configuration & health checks
-│   ├── Procfile          # Process declaration for cloud platforms
-│   ├── firebase.json     # Firebase Hosting static web config
-│   ├── .firebaserc       # Firebase active project specification
-│   └── .dockerignore     # Build context filtering rules
+│   └── Procfile          # Process declaration for cloud platforms
 │
 ├── scripts/              # 🛠️ Automation & Build Tooling
 │   └── build_apk.sh      # Automated Flutter APK compilation & artifact syncer
 │
-└── archive/              # 🏛️ Historical Backups & Deprecated Code
-    └── frontend_react_backup/
+├── run.py                # Server entrypoint and runner
+├── railway.json          # Railway cloud build & deployment manifest
+├── firebase.json         # Firebase Hosting configuration for static web app
+└── .firebaserc           # Firebase active project specification
 ```
 
 ---
@@ -77,7 +73,7 @@ fintask/
 ### 1. Run Backend Server
 ```bash
 # Using Python virtual environment:
-./.venv/bin/python backend/run.py
+./.venv/bin/python run.py
 # Or using the root runner:
 python run.py
 ```

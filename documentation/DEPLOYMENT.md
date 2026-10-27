@@ -4,7 +4,7 @@ All deployment assets and configurations are housed in `deployment/`. Root compa
 
 ## 1. Railway Cloud Deployment
 
-Railway automatically detects the root `Dockerfile` and `railway.json`.
+Railway automatically detects `railway.json` at root and builds using `deployment/Dockerfile`.
 
 ```bash
 # Deploy via Railway CLI
@@ -22,8 +22,8 @@ Healthcheck URL: `/health`
 To build and run the Docker container locally or in production:
 
 ```bash
-# Build the container image
-docker build -t fintask-backend .
+# Build the container image using deployment/Dockerfile
+docker build -f deployment/Dockerfile -t fintask-backend .
 
 # Run container on port 8080
 docker run -d -p 8080:8080 --name fintask-backend fintask-backend

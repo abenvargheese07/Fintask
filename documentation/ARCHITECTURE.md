@@ -23,12 +23,10 @@ fintask/
 ├── backend/              # ⚡ High-Performance FastAPI Python Backend
 │   ├── scripts/          # Workspace calculation & data transformation jobs
 │   ├── static/           # Compiled web assets and landing bundle
-│   ├── downloads/        # Direct-distribution build binaries (APK)
 │   ├── db.py             # SQLite WAL storage & task lifecycle models
 │   ├── main.py           # REST endpoints, CORS, background lifecycles
 │   ├── reminders.py      # Background APScheduler & ntfy.sh push dispatcher
-│   ├── requirements.txt  # Python package dependencies
-│   └── run.py            # Local backend server runner
+│   └── requirements.txt  # Python package dependencies
 │
 ├── test/                 # 🧪 Automated Test Suites
 │   └── test_db.py        # Backend database & API unit tests
@@ -44,17 +42,15 @@ fintask/
 │
 ├── deployment/           # 🚀 Container & Cloud Deployment Configurations
 │   ├── Dockerfile        # Production container image definition
-│   ├── railway.json      # Railway cloud configuration & health checks
-│   ├── Procfile          # Process entrypoint
-│   ├── firebase.json     # Firebase Hosting static web config
-│   ├── .firebaserc       # Firebase active project specification
-│   └── .dockerignore     # Build context filtering rules
+│   └── Procfile          # Process entrypoint
 │
 ├── scripts/              # 🛠️ Automation & Build Tooling
 │   └── build_apk.sh      # Automated Flutter APK compilation & artifact syncer
 │
-└── archive/              # 🏛️ Historical Backups & Deprecated Code
-    └── frontend_react_backup/
+├── run.py                # Server entrypoint and runner
+├── railway.json          # Railway cloud build & deployment manifest
+├── firebase.json         # Firebase Hosting configuration for static web app
+└── .firebaserc           # Firebase active project specification
 ```
 
 ## System Workflow

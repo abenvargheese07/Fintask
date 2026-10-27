@@ -24,10 +24,7 @@ flutter run
 You can compile the Android release APK using the automated build script:
 
 ```bash
-# From workspace root:
 ./scripts/build_apk.sh
-# or:
-./build_apk.sh
 ```
 
 The script:

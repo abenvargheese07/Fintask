@@ -5,12 +5,11 @@ __pycache__/
 *.pyo
 *.pyd
 .DS_Store
-fintask.db
-fintask.db*
-backend/fintask.db*
+*.db
+*.db-wal
+*.db-shm
 app/
 archive/
-artifacts/
 documentation/
 test/
 scripts/

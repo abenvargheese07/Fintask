@@ -1,33 +1,88 @@
-# Python & Environment
+# ==============================================================================
+# Fintask Root .gitignore
+# ==============================================================================
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Configurations
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Python & Virtual Environments
 .venv/
+venv/
+env/
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Databases & Runtime State
 *.db
 *.db-wal
 *.db-shm
-.DS_Store
+*.sqlite
+*.sqlite3
+fintask.db
+backend/fintask.db*
 
-# Mobile / Flutter App
+# Local & Generated Distribution Binaries
+# (Canonical release binary is tracked in artifacts/fintask.apk)
+backend/downloads/
+
+# Flutter / Dart Client (app/)
 app/.dart_tool/
 app/build/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
+app/.packages
+app/.pub-cache/
+app/.pub/
+
+# Android Native
 app/android/.gradle/
 app/android/build/
 app/android/app/build/
+app/android/local.properties
+app/android/GeneratedPluginRegistrant.java
+
+# iOS Native
 app/ios/Pods/
 app/ios/.symlinks/
 app/ios/Flutter/Flutter.framework
 app/ios/Flutter/Flutter.podspec
+app/ios/Flutter/Generated.xcconfig
+app/ios/Flutter/app.flx
+app/ios/Flutter/flutter_assets/
+app/ios/Flutter/flutter_export_environment.sh
+app/ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS Native
 app/macos/Pods/
 app/macos/Flutter/ephemeral/
+app/macos/Flutter/GeneratedPluginRegistrant.swift
 
-# Archive & Legacy
+# Historical Archives & Legacy
 archive/
 frontend_react_backup/
 
 # Firebase & Deployment Logs
 .firebase/
-firebase-debug.log
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+*.log
+.env
+.env.*
+!.env.example
