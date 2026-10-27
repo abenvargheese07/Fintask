@@ -175,8 +175,6 @@ def test_notification():
     return {'ok': True, 'message': 'Test alert broadcasted'}
 
 
-from .scripts.process_heavy_task import process_data
-
 
 @app.post('/api/heavy-task')
 @app.post('/api/process-task')

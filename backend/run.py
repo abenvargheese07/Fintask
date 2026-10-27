@@ -18,4 +18,8 @@ if __name__ == '__main__':
     except ValueError:
         port = 8080
     print(f'Starting Fintask backend on 0.0.0.0:{port}...')
-    uvicorn.run('main:app', host='0.0.0.0', port=port)
+    try:
+        from backend.main import app as application
+    except ImportError:
+        from main import app as application
+    uvicorn.run(application, host='0.0.0.0', port=port)

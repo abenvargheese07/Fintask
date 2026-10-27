@@ -9,10 +9,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source and runner
 COPY run.py .
 COPY backend/ ./backend/
+RUN ln -s backend app
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH="/app/backend:/app"
 ENV PORT=8080
 EXPOSE 8080
 
 CMD ["python", "run.py"]
-
