@@ -1,15 +1,33 @@
+# Python & Environment
 .venv/
 __pycache__/
-*.db
-.DS_Store
-node_modules/
-frontend/node_modules/
-frontend/dist/
-.firebase/
-frontend/android/.gradle/
-frontend/android/build/
-frontend/android/app/build/
-frontend/ios/App/Pods/
-frontend/ios/App/build/
 *.pyc
+*.pyo
+*.pyd
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+
+# Mobile / Flutter App
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/android/.gradle/
+app/android/build/
+app/android/app/build/
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/Flutter.framework
+app/ios/Flutter/Flutter.podspec
+app/macos/Pods/
+app/macos/Flutter/ephemeral/
+
+# Archive & Legacy
+archive/
+frontend_react_backup/
+
+# Firebase & Deployment Logs
+.firebase/
 firebase-debug.log

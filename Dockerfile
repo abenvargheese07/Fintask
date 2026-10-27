@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application source and runner
 COPY run.py .
-COPY app/ ./app/
+COPY backend/ ./backend/
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080

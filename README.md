@@ -8,48 +8,56 @@ Fintask is an intelligent task management and escalating deadline urgency system
 
 ```text
 fintask/
-├── app/                          # 🐍 Python FastAPI Backend Service
-│   ├── __init__.py
-│   ├── db.py                     # SQLite schema, queries, migrations & persistent storage
-│   ├── main.py                   # FastAPI REST API endpoints, CORS & APK streamer
-│   ├── reminders.py              # APScheduler escalating reminder engine & push alerts
-│   ├── downloads/                # 📦 Packaged distribution binaries
-│   │   └── fintask.apk           # Production Android APK build
-│   └── static/                   # 🌐 Compiled production React web assets (SPA)
-│       ├── assets/
-│       ├── index.html
-│       └── bg.jpg
-├── frontend/                     # ⚛️ React 18 + Vite Frontend Application
-│   ├── android/                  # 🤖 Native Android Studio project (Capacitor)
-│   │   ├── app/
-│   │   │   └── build/outputs/apk/debug/app-debug.apk
-│   │   ├── build.gradle
-│   │   └── gradlew
-│   ├── ios/                      # 🍎 Native iOS Xcode project (Capacitor)
-│   ├── public/                   # Static assets (favicons, background wallpapers)
-│   ├── src/
-│   │   ├── assets/               # SVGs and UI visual tokens
-│   │   ├── mobile/               # 📱 Dedicated touch-first mobile view components
-│   │   │   ├── MobileView.jsx    # Touch navigation, bottom sheet, donut gauge
-│   │   │   ├── mobile.css        # Mobile safe area and gesture styling
-│   │   │   └── notifications.js  # Capacitor native notification channels & scheduler
-│   │   ├── App.jsx               # Main spatial visionOS desktop workspace & two-way sync
-│   │   ├── App.css
-│   │   ├── index.css             # Glassmorphism design system & typography tokens
-│   │   └── main.jsx
-│   ├── capacitor.config.json     # Capacitor native runtime configuration
-│   ├── package.json
-│   └── vite.config.js
-├── tests/                        # 🧪 Integration & Unit Test Suite
-│   ├── __init__.py
-│   └── test_db.py                # Database CRUD and schema migration tests
-├── Dockerfile                    # Container configuration for Railway deployment
-├── Procfile                      # Process declaration for cloud platforms
-├── railway.json                  # Railway cloud deployment manifest
-├── firebase.json                 # Firebase Hosting configuration for static web app
-├── run.py                        # Python production runner that safely parses $PORT
-├── requirements.txt              # Backend Python dependencies
-└── fintask.db                    # Local SQLite development database
+├── app/                  # 💙 Multiplatform Flutter Client Application (Android, iOS, Web, macOS)
+│   ├── android/          # Native Android configuration & build scripts
+│   ├── ios/              # Native iOS project & Runner configuration
+│   ├── macos/            # Native macOS desktop bundle
+│   ├── web/              # Web application entry & manifests
+│   ├── lib/              # Flutter / Dart application source code
+│   │   ├── models/       # Task & Stats data models
+│   │   ├── screens/      # Responsive VisionOS spatial views
+│   │   ├── services/     # REST API, audio, & notification engines
+│   │   ├── theme/        # Glassmorphic dark styling & typography
+│   │   ├── utils/        # NLP natural language deadline & priority parser
+│   │   └── widgets/      # Modular UI components & bottom sheets
+│   └── test/             # Flutter widget and unit tests
+│
+├── backend/              # ⚡ High-Performance FastAPI Python Backend Service
+│   ├── scripts/          # Workspace calculation & data transformation jobs
+│   ├── static/           # Compiled web assets and landing bundle
+│   ├── downloads/        # Direct-distribution build binaries (APK)
+│   ├── db.py             # SQLite WAL storage & task lifecycle models
+│   ├── main.py           # REST endpoints, CORS, background lifecycles
+│   ├── reminders.py      # Background APScheduler & ntfy.sh push dispatcher
+│   ├── requirements.txt  # Python package dependencies
+│   ├── run.py            # Local backend server runner
+│   └── fintask.db        # SQLite database (WAL mode)
+│
+├── test/                 # 🧪 Backend & Integration Test Suites
+│   └── test_db.py        # Database CRUD, lifecycles, and API unit tests
+│
+├── documentation/        # 📚 Architectural, API, and Deployment Guides
+│   ├── ARCHITECTURE.md   # System layout & component relationships
+│   ├── API.md            # REST API specifications and contracts
+│   ├── DEPLOYMENT.md     # Railway, Docker, & Firebase deployment procedures
+│   └── MOBILE.md         # Mobile build and notification setup
+│
+├── artifacts/            # 📦 Output Binaries & Distribution Assets
+│   └── fintask.apk       # Compiled Android release APK package
+│
+├── deployment/           # 🚀 Container & Cloud Deployment Configurations
+│   ├── Dockerfile        # Production container image definition
+│   ├── railway.json      # Railway cloud configuration & health checks
+│   ├── Procfile          # Process declaration for cloud platforms
+│   ├── firebase.json     # Firebase Hosting static web config
+│   ├── .firebaserc       # Firebase active project specification
+│   └── .dockerignore     # Build context filtering rules
+│
+├── scripts/              # 🛠️ Automation & Build Tooling
+│   └── build_apk.sh      # Automated Flutter APK compilation & artifact syncer
+│
+└── archive/              # 🏛️ Historical Backups & Deprecated Code
+    └── frontend_react_backup/
 ```
 
 ---
@@ -64,55 +72,46 @@ fintask/
 
 ---
 
-## 🚀 Key Features
+## 🚀 Quick Start
 
-1. **Spatial Glassmorphism UI**: Inspired by visionOS and modern spatial interfaces with subtle blurs, glowing priority indicators, and responsive ambient depth.
-2. **Dedicated Mobile Edition**: Adaptive touch-first UI with native safe-area insets, interactive donut task-completion gauge, and bottom sheets for task scheduling.
-3. **Escalating Reminder Engine**: Multi-tiered deadline alerts where frequency and audio chimes accelerate as deadlines approach (24h → 2h → 30m → Due → Overdue).
-4. **Instant Two-Way Sync**: Live bi-directional polling between the published Firebase web app and native Android devices via the Railway HTTPS backend.
-5. **Native Notifications**: Android heads-up notifications with custom importance channels and vibration triggers via Capacitor.
+### 1. Run Backend Server
+```bash
+# Using Python virtual environment:
+./.venv/bin/python backend/run.py
+# Or using the root runner:
+python run.py
+```
+Backend will start on `http://0.0.0.0:8080`.
+
+### 2. Run Flutter Client Application
+```bash
+cd app
+flutter pub get
+flutter run
+```
+
+### 3. Run Automated Tests
+```bash
+# Backend unit tests:
+./.venv/bin/python -m unittest discover test
+
+# Flutter widget tests:
+cd app && flutter test
+```
+
+### 4. Build Android Release APK
+```bash
+./scripts/build_apk.sh
+# Outputs:
+#   -> artifacts/fintask.apk
+#   -> backend/downloads/fintask.apk
+```
 
 ---
 
-## 💻 Local Development Workflow
-
-### 1. Backend (FastAPI)
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run backend with auto-reload
-python run.py
-# Or: uvicorn app.main:app --reload --port 8000
-```
-
-### 2. Frontend (React + Vite)
-```bash
-cd frontend
-npm install --registry https://registry.npmmirror.com
-
-# Start Vite development server
-npm run dev
-
-# Build production bundle (outputs to app/static/)
-npm run build
-```
-
-### 3. Mobile Build (Android)
-```bash
-cd frontend
-# Sync React build into native Android
-npx cap sync
-
-# Build Android debug APK
-cd android
-JAVA_HOME=$HOME/.jdk/jdk-21.0.12.1+1/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew assembleDebug
-```
-
-### 4. Running Tests
-```bash
-PYTHONPATH=. python tests/test_db.py
-```
+## 📚 Documentation
+For in-depth guides, see the [`documentation/`](documentation/) directory:
+- [System Architecture](documentation/ARCHITECTURE.md)
+- [REST API Specifications](documentation/API.md)
+- [Cloud & Container Deployment](documentation/DEPLOYMENT.md)
+- [Mobile & Push Notifications Setup](documentation/MOBILE.md)
